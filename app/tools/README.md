@@ -18,7 +18,7 @@ The decider's tools: their schemas (`TOOLS`) and executors. There are two kinds:
 
 ## Wire steps the client runs
 
-`{"ax_open_plugin": name, "track"?, "new"?}`, `{"ax_set_param": {plugin, param, value, track?}}`, `{"menu_path": [...]}`, `{"shortcut": "Cmd+F"}`, `{"click_text": ...}`, `{"click_value_of": label}`, `{"choose": option, "reopen": [steps], "shows"?}`. Any step may carry `expect`. The client's executor is in `client-v3/core/automation/`. Changing a shape here means changing it there too.
+`{"ax_open_plugin": name, "track"?, "new"?}`, `{"ax_set_param": {plugin, param, value, track?}}`, `{"menu_path": [...]}`, `{"shortcut": "Cmd+F"}`, `{"click_text": ...}`, `{"click_value_of": label}`, `{"choose": option, "reopen": [steps], "shows"?}`. Any step may carry `expect`. The client's executor is in `client/core/automation/`. Changing a shape here means changing it there too.
 
 ## Quirks & why
 

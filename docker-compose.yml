@@ -1,5 +1,8 @@
 # Local stack: Postgres + pgvector and the API. See README.md.
 #   docker compose up -d --build
+# Pinned so renaming this folder never moves the containers or the DB volume.
+name: conductor-server
+
 services:
   db:
     image: pgvector/pgvector:pg16

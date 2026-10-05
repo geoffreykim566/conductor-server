@@ -2,7 +2,7 @@
 
 ## Rules for this repo
 
-- Run git and Python from `server-v3/`, never the parent `conductor/` folder.
+- Run git and Python from `server/`, never the parent `conductor/` folder.
 - Code runs in Docker. Use `docker compose exec app ...`; there is no local venv.
 - Tests go in `tests/` (pytest), never in `app/`. One-off experiments go in `evals/` or a scratch dir, never in `app/`.
 - A file holds one concern you can say in one sentence. Split a file when it grows past ~250 lines or a second concern.
