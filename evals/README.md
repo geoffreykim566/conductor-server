@@ -61,6 +61,7 @@ A top-level `expect` grades the final turn. A per-turn `expect` grades that turn
 - **The grader keeps its own `ACTION_TOOLS`** rather than importing `app.tools`, so it can grade any build.
 - **`match` / `resolved_problem` grade the first `cite_kb` (or old `lookup_concept`) call.** A later call is a legitimate second step.
 - **`battery/paths.py` (`ungrounded_paths`)** reports menu paths an answer states that are in neither its cited text nor a route. The latency harness records it per turn; it's not asserted.
+- **No-KB grading:** with `DECIDER=sol` the runner skips `match`, `resolved_problem`, `walkthrough_solution` and `lookup_count` (`runner.KB_ONLY_KEYS`): they grade `cite_kb`, which Sol doesn't have. The run's first line says which decider and mode it graded. Compare Sol runs only with Sol runs.
 - **Known grader issues:** `no_completion_claims` flags descriptive "is set", and `match` checks can fail correct final answers. Read the FAIL before believing it.
 - **Code-guaranteed scenarios** (e.g. the toggle gate refusing an attach) pass whatever the model does. They're regression tests for that code path, not model judgment.
 - **Latency A/B must record full answers.** Use the same prompts and interleave the variants. n=2 per cell can't judge quality; the battery can. Add a variant in `VARIANTS` as `{"SETTING_NAME": value}`.

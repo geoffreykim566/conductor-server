@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app import pipeline, tools
+from app.core import config
 from app.pipeline import executors, model_io, settings
 
 # --- model response builders -------------------------------------------------
@@ -68,6 +69,14 @@ def queue_setting(name: str, value: str | None = None, said: str = "", offered: 
 
 
 # --- fixtures ----------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def sonnet_decider():
+    """The scripted fakes are Anthropic-shaped, so tests run the Sonnet decider path;
+    Sol tests opt in with patch.object(config, "DECIDER", "sol")."""
+    with patch.object(config, "DECIDER", "sonnet"):
+        yield
 
 
 class FakeModel:

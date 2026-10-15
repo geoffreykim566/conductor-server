@@ -140,6 +140,8 @@ def queue_open_setting(inp: dict, ax_fixture: dict | None = None) -> dict:
         out["chooses"] = chosen
     elif choice is not None:
         out["note"] = "opens the pane only -- no value is chosen; " + pane_only_ask(choice)
+        if len(choice.get("options") or []) > 1:
+            out["ask_options"] = list(choice["options"])  # the reply must name them (respond._options_unnamed)
     return out
 
 

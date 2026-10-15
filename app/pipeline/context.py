@@ -1,11 +1,13 @@
-"""What the decider sees besides history: the cached system prompt (with the KB), this turn's live
+"""What the decider sees besides history: the cached system prompt (Sonnet's with the KB) and tools, this turn's live
 state block, and this turn's screenshots spliced into the user message per call.
 Cache breakpoints and why screenshots never enter `msgs`: README.md (Context & caching)."""
 from dataclasses import dataclass
 
+from app.core import config
 from app.pipeline.transcript import last_user_text_index
-from app import kb
-from app.prompts import SYSTEM_PROMPT
+from app import kb, tools
+from app.prompts import SOL_SYSTEM_PROMPT, SYSTEM_PROMPT
+from app.tools.schemas_sol import SOL_TOOLS
 
 _LIVE_STATE_HEADER = (
     "\n\n## Live state for this turn\n\n"
@@ -29,6 +31,7 @@ def media_type_for_b64(b64: str) -> str:
 @dataclass
 class TurnContext:
     system: list[dict]
+    tools: list[dict]  # the decider's tools: Sol's (no cite_kb) or the KB ones
     live_state: str | None  # also handed to the writer verbatim
     turn_idx: int | None  # this turn's user message in msgs
     screenshot_msg: dict | None
@@ -48,10 +51,11 @@ class TurnContext:
             state_blocks.append(ax_state)
         live_state = "\n\n".join(state_blocks) if state_blocks else None
 
-        # Breakpoint 1: the static prompt with the whole KB. Breakpoint 2: live state,
-        # its own block so the static prompt still hits the cache across turns.
-        system = [{"type": "text", "text": SYSTEM_PROMPT + "\n\n# Knowledge base\n\n" + kb.KB_TEXT,
-                   "cache_control": {"type": "ephemeral"}}]
+        # Breakpoint 1: the static prompt (Sonnet's carries the whole KB; Sol has none).
+        # Breakpoint 2: live state, its own block so the static prompt still hits the cache.
+        sol = config.DECIDER == "sol"
+        static = SOL_SYSTEM_PROMPT if sol else SYSTEM_PROMPT + "\n\n# Knowledge base\n\n" + kb.KB_TEXT
+        system = [{"type": "text", "text": static, "cache_control": {"type": "ephemeral"}}]
         if state_blocks:
             system.append({
                 "type": "text",
@@ -70,7 +74,8 @@ class TurnContext:
                     for b64 in screenshots_b64
                 ] + [{"type": "text", "text": msgs[turn_idx]["content"]}],
             }
-        return cls(system=system, live_state=live_state, turn_idx=turn_idx, screenshot_msg=screenshot_msg)
+        return cls(system=system, tools=SOL_TOOLS if sol else tools.TOOLS, live_state=live_state,
+                   turn_idx=turn_idx, screenshot_msg=screenshot_msg)
 
     def for_call(self, base: list[dict]) -> list[dict]:
         """Per-call copy of `base` with this turn's user message swapped for its

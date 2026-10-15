@@ -37,7 +37,7 @@ async def respond(messages: list[dict], **kwargs) -> Result:
 async def _call(ctx: TurnContext, msgs: list[dict], usage: list[dict],
                 nudge: str | None = None, tool_choice: dict | None = None):
     system = ctx.system + ([{"type": "text", "text": "\n\n" + nudge}] if nudge else [])
-    resp = await model_io.call_model(system, tools.TOOLS, ctx.for_call(msgs), None, tool_choice)
+    resp = await model_io.call_model(system, ctx.tools, ctx.for_call(msgs), None, tool_choice)
     usage.append(model_io.usage_dict(resp.usage))
     tool_uses = [b for b in resp.content if b.type == "tool_use"]
     return resp, tool_uses, "".join(b.text for b in resp.content if b.type == "text")
@@ -76,17 +76,32 @@ def _all_accepted(tool_results: list[dict]) -> bool:
     return True
 
 
+def _options_unnamed(tool_results: list[dict], iter_text: str) -> bool:
+    """A pane-only dropdown asks the reply to name its options. Sol writes its answer
+    before it sees that, so if this iteration's text names none of them, the decider
+    gets the follow-up call to ask (README: Early exit)."""
+    text = iter_text.lower()
+    for tr in tool_results:
+        opts = json.loads(tr["content"]).get("ask_options")
+        if opts and not any(o.lower() in text for o in opts):
+            return True
+    return False
+
+
 def _can_exit_early(tool_uses: list, tool_results: list[dict], iter_text: str, state: TurnState) -> bool:
     """Nothing left to decide: every call this iteration was an accepted action or
     citation, a citing iteration already wrote its explanation, and no pick is
-    pending. Skips the prose-only follow-up call (~2.5 s). Any refusal or error
-    keeps looping so the decider can react (README: Early exit)."""
+    pending, and the decider (Sol) didn't say another action follows. Skips the
+    prose-only follow-up call (~2.5 s). Any refusal or error keeps looping so the
+    decider can react (README: Early exit)."""
     citing = any(tu.name == "cite_kb" for tu in tool_uses)
     return (settings.EARLY_EXIT_ON_ACTION and bool(tool_uses)
             and all(tu.name in tools.ACTION_TOOLS or tu.name == "cite_kb" for tu in tool_uses)
             and _all_accepted(tool_results)
             and bool(iter_text.strip() or not citing)
-            and not needs_pick(state.trace, state.card_steps))
+            and not needs_pick(state.trace, state.card_steps)
+            and not state.more_actions
+            and not _options_unnamed(tool_results, iter_text))
 
 
 async def run_turn(
@@ -140,6 +155,7 @@ async def run_turn(
             tool_uses, resp, iter_text = parked, None, ""
         else:
             resp, tool_uses, iter_text = await _decide(i, msgs, state, ctx, force_first, on_status, usage)
+        state.more_actions = bool(getattr(resp, "more_actions", False))
 
         if not tool_uses:
             msgs.append({"role": "assistant", "content": model_io.serialize_content(resp.content)})

@@ -1,4 +1,4 @@
-"""The one place the pipeline calls the Anthropic API, plus converting its response
+"""The one place the pipeline calls a model (the Sol decider through openai_io), plus converting its response
 blocks back into request-shaped dicts. Tests patch `model_io._client.messages`."""
 import logging
 import time
@@ -6,8 +6,9 @@ from typing import Awaitable, Callable
 
 from anthropic import AsyncAnthropic
 
-from app.core.config import CENTRAL_ANTHROPIC_KEY, MAX_TOKENS, MODEL
-from app.pipeline import settings
+from app.core import config
+from app.core.config import CENTRAL_ANTHROPIC_KEY, MAX_TOKENS
+from app.pipeline import openai_io, settings
 
 OnChunk = Callable[[str], Awaitable[None]]
 OnStatus = Callable[[str], Awaitable[None]]
@@ -26,11 +27,14 @@ async def call_model(
     model: str | None = None,
 ):
     """One messages.create call, or the streamed equivalent when on_chunk is given
-    (only the writer streams). model=None means the decider: config.MODEL, resolved
-    at call time, plus settings.DECIDER_EFFORT / DECIDER_THINKING. Logs per-call
-    timing and cache accounting as [model_call]."""
+    (only the writer streams). model=None means the decider: Sol via openai_io when
+    config.DECIDER is "sol", else config.MODEL, resolved at call time, plus
+    settings.DECIDER_EFFORT / DECIDER_THINKING. Logs per-call timing and cache
+    accounting as [model_call]."""
     decider = model is None
-    model = MODEL if decider else model
+    if decider and config.DECIDER == "sol":
+        return await openai_io.call_decider(system, tools_param, msgs, tool_choice)
+    model = config.MODEL if decider else model
     kwargs = dict(model=model, max_tokens=MAX_TOKENS, system=system, messages=msgs)
     if decider and settings.DECIDER_EFFORT is not None:
         kwargs["output_config"] = {"effort": settings.DECIDER_EFFORT}

@@ -13,12 +13,23 @@ import sys
 import time
 from pathlib import Path
 
-from app.core import db
+from app.core import config, db
 from app.pipeline import respond
 from evals.battery.grader import action_calls, actual_outcome, grade
 
 SCENARIOS_DIR = Path(__file__).parents[1] / "scenarios"
 SETS = {"core": ["core.json"], "extended": ["extended.json"], "all": ["core.json", "extended.json"]}
+
+
+# Graded only for a decider that cites the KB: Sol has no cite_kb (README: no-KB grading).
+KB_ONLY_KEYS = {"match", "resolved_problem", "walkthrough_solution", "lookup_count"}
+
+
+def gradable(expect: dict) -> dict:
+    """The expect block this build's decider can be held to."""
+    if config.DECIDER != "sol":
+        return expect
+    return {k: v for k, v in expect.items() if k not in KB_ONLY_KEYS}
 
 
 def load_scenarios(set_name: str = "all") -> list[dict]:
@@ -81,7 +92,7 @@ async def run_scenario(scenario: dict) -> dict:
                 f"{c['tool']}({c['args']}){'' if c['ok'] else ' REFUSED'}" for c in acts))
 
         if "expect" in turn:
-            turn_verdicts = grade(turn["expect"], actual_outcome(result.trace, result.text, result.confidence_tier, result.sources,
+            turn_verdicts = grade(gradable(turn["expect"]), actual_outcome(result.trace, result.text, result.confidence_tier, result.sources,
                                                             getattr(result, "auto_run", None)))
             for v in turn_verdicts:
                 v["turn"] = i
@@ -92,7 +103,7 @@ async def run_scenario(scenario: dict) -> dict:
                 print(f"    [{status}] {v['field']}: expected={v['expected']!r} actual={v['actual']!r}")
 
     if "expect" in scenario:
-        final_verdicts = grade(scenario["expect"], actual_outcome(trace, response_text, confidence_tier, sources, auto_run))
+        final_verdicts = grade(gradable(scenario["expect"]), actual_outcome(trace, response_text, confidence_tier, sources, auto_run))
         for v in final_verdicts:
             v["turn"] = "final"
         verdicts.extend(final_verdicts)
@@ -109,6 +120,8 @@ async def run_battery_once(scenarios: list[dict], run_label: str = "") -> dict:
     per-scenario signature of every assertion's (turn, field, pass), not just counts,
     so --runs can show WHICH assertion flipped between runs."""
     label = f" ({run_label})" if run_label else ""
+    print(f"DECIDER: {config.decider_model()}"
+          + (f" (no-KB grading: {', '.join(sorted(KB_ONLY_KEYS))} skipped)" if config.DECIDER == "sol" else ""))
     results = []
     wall_start = time.monotonic()
     await db.connect()

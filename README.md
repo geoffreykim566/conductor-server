@@ -29,7 +29,7 @@ docker compose exec app python -m pytest             # unit tests
 docker compose exec app python -m evals.battery.runner > test_runs/$(date +%F)/run.log   # battery
 ```
 
-`.env.local` holds the secrets (`CENTRAL_ANTHROPIC_KEY`, `CONDUCTOR_ID_SECRET`, `ADMIN_PASSWORD`). Every setting is in `app/core/config.py`.
+`.env.local` holds the secrets (`CENTRAL_ANTHROPIC_KEY`, `OPENAI_API_KEY` for the Sol decider, `CONDUCTOR_ID_SECRET`, `ADMIN_PASSWORD`). `DECIDER` (`sol` default, `sonnet`) picks the decider (`app/pipeline/README.md`). Every setting is in `app/core/config.py`.
 
 ## Quirks
 

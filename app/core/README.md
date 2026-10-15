@@ -6,7 +6,7 @@ Shared infrastructure that every other package imports. Nothing in here imports 
 
 | File | What |
 |---|---|
-| `config.py` | Every setting: env vars plus model names. Secrets only from env (`.env.local` locally) |
+| `config.py` | Every setting: env vars plus model names, and which decider runs. Secrets only from env (`.env.local` locally) |
 | `db.py` | asyncpg pool (pgvector + jsonb codecs) and every query outside admin |
 | `signing.py` | HMAC-signed conductor ids (`<uuid>.<sig>`) |
 | `ratelimit.py` | slowapi limiter keyed by client IP |
@@ -15,7 +15,8 @@ Shared infrastructure that every other package imports. Nothing in here imports 
 ## Quirks & why
 
 - **Models:**
-  - `MODEL` is the decider: Sonnet 5.5. It's ~30% faster per call than Sonnet 5, with the same quality once a no-tool first call is re-asked. It rejects forced `tool_choice` (`pipeline/settings.py`).
+  - `DECIDER` picks the decider: `sol` (GPT-6.1 Sol on OpenAI, `SOL_MODEL`, needs `OPENAI_API_KEY`; why: `pipeline/README.md`, Sol decider) or `sonnet`. An env var so rollback is a Railway variable. `SOL_MAX_OUTPUT_TOKENS` is 8192 because Responses counts reasoning as output.
+  - `MODEL` is the Sonnet decider: Sonnet 5.5. It's ~30% faster per call than Sonnet 5, with the same quality once a no-tool first call is re-asked. It rejects forced `tool_choice` (`pipeline/settings.py`).
   - `RESEARCH_MODEL` is Sonnet 5.5 too: on Sonnet 5 half the battery's research calls hit the 150 s timeout.
   - `WRITER_MODEL` is a cheaper Haiku, because the writer only phrases decided facts and never weighs evidence.
   - Changing the decider model needs a battery run first (the model switch has its own log).

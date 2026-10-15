@@ -16,7 +16,8 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
 | `backfill.py` | Re-shows an earlier card on "show me that again" |
 | `confidence.py` | Confidence tier from the trace; research sources |
 | `writer.py` | Builds the writer's facts block and runs the writer |
-| `model_io.py` | The only Anthropic API call site; response -> request-shape dicts |
+| `model_io.py` | The only model call site (routes the Sol decider to `openai_io`); response -> request-shape dicts |
+| `openai_io.py` | The Sol decider on OpenAI's Responses API, translated to and from Anthropic-shaped blocks |
 | `transcript.py` | Turn boundary and pending tool calls in a message list |
 | `settings.py` | Tunables (`MAX_ITERATIONS`, decider effort, forced tool choice, early exit, ...) |
 | `notes.py` | Fixed text handed to the decider (refusals, nudges, card notes) |
@@ -24,8 +25,8 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
 
 ## How a turn flows
 
-1. **Context.** The system prompt is the static decider prompt with the whole KB (`app/kb/`), plus a live-state block (the client's AX dump, or the battery's `ax_fixture`). The screenshots are spliced into this turn's user message for each call only.
-2. **Decider loop** (≤ `MAX_ITERATIONS`). The decider (`config.MODEL`, effort `settings.DECIDER_EFFORT`) is called with the tools. It answers, cites the KB entries it used (`cite_kb`), and calls actions, usually all in one response.
+1. **Context.** The system prompt is the static decider prompt: Sol's (`prompts/decider_sol.py`, no KB) or Sonnet's with the whole KB (`app/kb/`), per `config.DECIDER`. Plus a live-state block (the client's AX dump, or the battery's `ax_fixture`). The screenshots are spliced into this turn's user message for each call only.
+2. **Decider loop** (≤ `MAX_ITERATIONS`). The decider (Sol or `config.MODEL`, effort `settings.DECIDER_EFFORT`) is called with its tools (`TurnContext.tools`). It answers, cites the KB entries it used (`cite_kb`), and calls actions, usually all in one response.
    - The first call is unforced, except for a go-ahead after a card (Forced first call, below).
    - Each tool call goes through `dispatch.handle_tool_use`, which updates the card.
    - The text the decider writes in every iteration is kept, not just in the last one.
@@ -36,11 +37,21 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
 ## Conventions
 
 - **Read tunables as `settings.X` at call time**, never `from app.pipeline.settings import X`. Tests and `evals/latency_variants.py` patch them on the module.
-- **Call the model only through `model_io.call_model`**, by module attribute. Tests patch `model_io._client.messages.create`, and the latency harness swaps `model_io.call_model`.
+- **Call the model only through `model_io.call_model`**, by module attribute. Tests patch `model_io._client.messages.create` (pinned to the Sonnet path by an autouse fixture) or `openai_io._client.post` for Sol, and the latency harness swaps `model_io.call_model`.
 - **Executors are looked up in `executors.EXECUTORS`** (tests `patch.dict` it). `research` and `tools` are reached as module attributes for the same reason.
 - **Code decides, prompts don't.** Anything that has to hold every time is enforced here, not requested in a prompt: commit-to-one, auto-run, "nothing has run yet", the confidence tier. Prompt-only versions of these held ~40–50% of the time.
 
 ## Quirks & why
+
+### Sol decider (`config.DECIDER = "sol"`, the default)
+- **Why Sol, with no KB.** The KB-strict Sonnet prompt missed general troubleshooting (hidden main window; ChatGPT and Gemini answered it at once). In the 10-12 to 10-15 A/B, GPT-6.1 Sol answering from its own Logic knowledge matched Opus + KB on the core battery, made fewer wrong UI claims (0% vs 8%), ran faster (median 6.1 s vs 6.9 s) at a third of the cost, and won the user's blind read on concision. Details: `diagnosis-log.md` (archived with the logs).
+- **What grounds it instead of the KB:** the approved routes (`open_setting`; every card's path still comes from `seed/routes.json`), a short "Logic facts" list in its prompt for things it got wrong unaided, and `web_research` only when it has no answer of its own. Add a fact when a miss repeats; keep each one worded as a plain fact, not a symptom match.
+- **The prompt is its own file**, the exact text that was tested, not derived from `decider.py`. Edit it directly and re-run the battery.
+- **Responses API, not Chat Completions:** OpenAI doesn't support function calling with Sol on Chat Completions. `store` is off; Sol's encrypted reasoning items are replayed within a turn (OpenAI recommends it) but never enter history.
+- **`answer` arg on the action tools:** Sol never writes text beside a tool call, so a card turn ended with no explanation, and asking for it took a second call (~5 s). The reply now rides on the first action call and the adapter turns it into the text block. Written text wins if Sol writes both.
+- **`more_actions` arg:** Sol queues one action per response even when a request needs two (an explicit `parallel_tool_calls` didn't change that), and early exit then dropped the second ("add a compressor at -18" lost the threshold). True keeps the turn open for the next call.
+- **Empty args are dropped** (Sol sends `value: ""` for an omitted optional one, which the dropdown routes refused), and **malformed tool JSON is retried** like a 429 (Sol once sent truncated arguments).
+- **Rollback:** set `DECIDER=sonnet` (Railway variable) for Sonnet 5.5 with the KB; nothing else changes. `config.decider_model()` is what events record.
 
 ### One card per turn
 - Every action, whether the model called it or a citation queued it, is a step on the same card, in call order. The card holds at most `MAX_ATTACHES_PER_TURN` steps.
@@ -67,6 +78,8 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
 - **Exceptions that keep looping:**
   - Any refusal or error, so the decider can react.
   - A pending pick.
+  - Sol's `more_actions` (another action follows).
+  - A pane-only dropdown whose options the text doesn't name (`ask_options`): Sol writes its answer before seeing the "ask which one" note, so without the follow-up the reply never named them and "the last one" next turn picked Off.
 
 ### Tunables
 - `DECIDER_EFFORT` is medium: the same graded quality as high, ~1 s faster median, ~7% cheaper. Low was no faster and failed more.

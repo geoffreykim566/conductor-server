@@ -1,10 +1,11 @@
 # prompts
 
-System prompts, one file per model role. Each file is a single string constant; `__init__.py` re-exports both.
+System prompts, one file per model role. Each file is a single string constant; `__init__.py` re-exports them.
 
 | File | Constant | Used by |
 |---|---|---|
-| `decider.py` | `SYSTEM_PROMPT` | `pipeline/context.py`, as cache breakpoint 1 |
+| `decider_sol.py` | `SOL_SYSTEM_PROMPT` | `pipeline/context.py` when `DECIDER=sol`: no KB, own grounding, Logic facts |
+| `decider.py` | `SYSTEM_PROMPT` | `pipeline/context.py` when `DECIDER=sonnet`, with the KB appended |
 | `writer.py` | `WRITER_SYSTEM_PROMPT` | `pipeline/writer.py`, with the turn's facts appended |
 
 ## Quirks & why
