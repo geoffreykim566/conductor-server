@@ -10,7 +10,7 @@ The decider's tools: their schemas (`TOOLS`) and executors. There are two kinds:
 | File | What |
 |---|---|
 | `schemas.py` | The six tool definitions sent to the model, plus `TOOLS` and `ACTION_TOOLS` |
-| `schemas_sol.py` | `SOL_TOOLS`: the same minus `cite_kb`, KB-free wording, `answer` / `more_actions` on the actions (why: `pipeline/README.md`, Sol decider) |
+| `schemas_sol.py` | `SOL_TOOLS`: the same minus `cite_kb`, KB-free wording, `answer` / `remaining_actions` on the actions (why: `pipeline/README.md`, Sol decider) |
 | `actions.py` | Executors for the three action tools; `action_calls` (a KB solution's stored action -> calls) |
 | `choices.py` | Dropdown routes: match a value to an option, check the user named it |
 | `routes.py` | Runnable `ROUTES` (from `app.kb`); how a route is described to the model (desc + path) |
@@ -43,6 +43,7 @@ The decider's tools: their schemas (`TOOLS`) and executors. There are two kinds:
 - **`picks`:** a route fixed to one option ("flex pitch") ends on a `choose` step, not a click. The client closes stray menus before every step except a choose, and a choose ledgers the old value for Revert.
 - **`wait_for_run`:** the route's target depends on the user's selection, so its card never auto-runs.
 - An ambiguous value ("flex on" fits four options) is refused with the list, so the reply asks which one.
+- **The ask note quotes each option** (`pane_only_ask`): options hold commas ("Flex On, Smart Tempo On"), and a `|`-separated list came out of the writer as wrong, mangled options.
 - **Offered options count as the user's pick** (user call: users shouldn't have to type option names). It's a word match on the previous decider text, including a question asked only through `ask_clarifying_question`, so any option it mentioned is allowed; a first turn has none.
 - **`_user_named` compares letters and digits only** (no punctuation needed) and reads "smart tempo" as Logic's "ST" abbreviation.
 - **`processing threads` has `model_may_pick: []`:** the KB says max threads, not "Automatic", and the client can't pick a number, so the card stops at the pane.

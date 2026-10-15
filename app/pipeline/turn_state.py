@@ -18,7 +18,7 @@ class TurnState:
     queued_by_lookup: dict[str, tuple[int, int]] = field(default_factory=dict)  # endorse key -> its span
     route_spans: dict[str, tuple[int, int]] = field(default_factory=dict)  # model-called open_setting -> its span
     pick_forced: bool = False  # the one pick-or-ask re-call per turn
-    more_actions: bool = False  # the last decider call said another action follows (Sol)
+    more_actions: bool = False  # the last decider call still owed an action (Sol's remaining_actions)
 
     @property
     def steps(self) -> list | None:

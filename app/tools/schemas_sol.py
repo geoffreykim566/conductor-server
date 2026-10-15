@@ -1,5 +1,5 @@
 """Sol's tools (DECIDER=sol): the same tools minus cite_kb, descriptions without the KB, a
-research bar of "no answer of your own", and `answer` / `more_actions` on the actions.
+research bar of "no answer of your own", and `answer` / `remaining_actions` on the actions.
 Derived from schemas.py so routes and plugin rules stay shared. Why: README.md (Sol)."""
 import copy
 
@@ -18,12 +18,14 @@ ANSWER_PROP = {"type": "string", "description": (
     "Your written reply to the user, shown beside this card: what's going on and the fix, as you'd "
     "write it in your answer (for a plain command, one short line). Fill it on the first action call "
     "of a response; leave it empty on the others.")}
-# Sol queues one action per response even when a request needs two, and early exit then
-# dropped the second; it says when another is coming instead (respond._can_exit_early).
-MORE_ACTIONS_PROP = {"type": "boolean", "description": (
-    "true if the user's request needs another action you'll queue after this one's result "
-    "(e.g. set a parameter on the plug-in this call adds); false if this completes it.")}
-SOL_ONLY_ARGS = ("answer", "more_actions")
+# Sol queues one action per response even when a request needs several. A yes/no "more
+# coming" flag still lost the last one (the low cut in "compressor and eq with low cut", 2/3);
+# listing what's left makes it plan, and the turn continues until the list is empty.
+REMAINING_ACTIONS_PROP = {"type": "array", "items": {"type": "string"}, "description": (
+    "Every other action the user's request still needs after this one, each as a short phrase "
+    "(\"set Channel EQ Low Cut Frequency to 80\"), in the order you'll queue them. Include each "
+    "one your answer promises that isn't queued yet. [] if this call completes the request.")}
+SOL_ONLY_ARGS = ("answer", "remaining_actions")
 
 
 def _sol_tool(t: dict) -> dict:
@@ -47,7 +49,7 @@ def _sol_tool(t: dict) -> dict:
     t["description"] = d
     if t["name"] in ACTION_TOOLS:
         s = t["input_schema"]
-        s["properties"] = {**s["properties"], "answer": ANSWER_PROP, "more_actions": MORE_ACTIONS_PROP}
+        s["properties"] = {**s["properties"], "answer": ANSWER_PROP, "remaining_actions": REMAINING_ACTIONS_PROP}
         s["required"] = [*s["required"], *SOL_ONLY_ARGS]
     return t
 

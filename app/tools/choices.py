@@ -11,7 +11,9 @@ def pane_only_ask(choice: dict) -> str:
     options = choice.get("options") or []
     if len(options) < 2:
         return "the user picks there"
-    return ("ask the user which one they want, naming the options exactly: " + " | ".join(options)
+    # Quoted: the options hold commas ("Flex On, Smart Tempo On"), and a "|" list got mangled into
+    # wrong options in the reply.
+    return ("ask the user which one they want, naming the options exactly: " + ", ".join(f'"{o}"' for o in options)
             + " -- or, if your answer recommends one, name it and offer to set it")
 
 

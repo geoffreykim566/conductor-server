@@ -49,7 +49,8 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
 - **The prompt is its own file**, the exact text that was tested, not derived from `decider.py`. Edit it directly and re-run the battery.
 - **Responses API, not Chat Completions:** OpenAI doesn't support function calling with Sol on Chat Completions. `store` is off; Sol's encrypted reasoning items are replayed within a turn (OpenAI recommends it) but never enter history.
 - **`answer` arg on the action tools:** Sol never writes text beside a tool call, so a card turn ended with no explanation, and asking for it took a second call (~5 s). The reply now rides on the first action call and the adapter turns it into the text block. Written text wins if Sol writes both.
-- **`more_actions` arg:** Sol queues one action per response even when a request needs two (an explicit `parallel_tool_calls` didn't change that), and early exit then dropped the second ("add a compressor at -18" lost the threshold). True keeps the turn open for the next call.
+- **`remaining_actions` arg:** Sol queues one action per response even when a request needs several (an explicit `parallel_tool_calls` didn't change that), and early exit then dropped the rest ("add a compressor at -18" lost the threshold). A yes/no "more coming" flag still lost the last of three live ("compressor and eq with low cut" lost the low cut 2/3); listing what's left makes Sol plan, and the turn continues while the list is non-empty (`more_actions` on the response, `TurnState.more_actions`). 10/10 after.
+- **Sol sees its own calls as it made them.** The adapter strips `answer` / `remaining_actions` before anything runs, but replays them (and the response's reasoning) into the turn's later calls from a per-turn stash, so Sol still sees its plan. Text synthesized from `answer` isn't replayed twice.
 - **Empty args are dropped** (Sol sends `value: ""` for an omitted optional one, which the dropdown routes refused), and **malformed tool JSON is retried** like a 429 (Sol once sent truncated arguments).
 - **Rollback:** set `DECIDER=sonnet` (Railway variable) for Sonnet 5.5 with the KB; nothing else changes. `config.decider_model()` is what events record.
 
@@ -78,7 +79,7 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
 - **Exceptions that keep looping:**
   - Any refusal or error, so the decider can react.
   - A pending pick.
-  - Sol's `more_actions` (another action follows).
+  - Sol's `remaining_actions` not yet empty.
   - A pane-only dropdown whose options the text doesn't name (`ask_options`): Sol writes its answer before seeing the "ask which one" note, so without the follow-up the reply never named them and "the last one" next turn picked Off.
 
 ### Tunables
