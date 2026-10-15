@@ -124,10 +124,10 @@ async def run_turn(
     state = restore_turn_state(msgs[len(messages):-1]) if resume else TurnState()
     force_first = force_first_call(messages)
 
-    async def finish(is_clarifying_question: bool = False) -> Result:
+    async def finish(is_clarifying_question: bool = False, question: str = "") -> Result:
         text, tier = await finalize_answer(
             state.trace, state.steps, "\n\n".join(state.text_parts), messages, on_chunk, usage,
-            is_clarifying_question=is_clarifying_question, live_state=ctx.live_state,
+            is_clarifying_question=is_clarifying_question, question=question, live_state=ctx.live_state,
             had_screenshots=ctx.had_screenshots, has_actions=bool(state.card_steps),
         )
         return Result(text=text, walkthrough_steps=state.steps,
@@ -187,11 +187,9 @@ async def run_turn(
 
         # A clarifying question IS the final answer; it ends the turn.
         if any(tu.name == "ask_clarifying_question" for tu in tool_uses):
-            # The question itself, when the decider didn't also write it as text.
-            if not iter_text.strip():
-                state.text_parts += [str(tu.input.get("question")) for tu in tool_uses
-                                     if tu.name == "ask_clarifying_question" and tu.input.get("question")]
-            return await finish(is_clarifying_question=True)
+            question = "\n\n".join(str(tu.input["question"]) for tu in tool_uses
+                                   if tu.name == "ask_clarifying_question" and tu.input.get("question"))
+            return await finish(is_clarifying_question=True, question=question)
 
     # Out of iterations: one tools-off call so the turn never ends empty.
     final = await model_io.call_model(

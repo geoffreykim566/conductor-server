@@ -78,8 +78,11 @@ def offered_text(messages: list[dict]) -> str:
         if m.get("role") != "assistant":
             continue
         c = m.get("content")
+        # A question asked only through ask_clarifying_question offers options too.
         text = c if isinstance(c, str) else " ".join(
-            b.get("text", "") for b in c if isinstance(b, dict) and b.get("type") == "text") if isinstance(c, list) else ""
+            b.get("text", "") if b.get("type") == "text" else str((b.get("input") or {}).get("question", ""))
+            for b in c if isinstance(b, dict) and (b.get("type") == "text" or b.get("name") == "ask_clarifying_question")
+        ) if isinstance(c, list) else ""
         if text.strip():
             return text.lower()
     return ""

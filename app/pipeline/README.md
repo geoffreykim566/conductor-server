@@ -78,6 +78,7 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
 - Bare "again" and "forgot" are excluded ("thanks again, that fixed it").
 - "cant find it" was removed after it matched 7 battery turns.
 - The destructive list is project-scoped only, because "delete everything on this track" is undo-able.
+- **`offered_text` also reads `ask_clarifying_question`'s question.** A question asked only through the tool offers options too; without it, "yes" after "do you mean On + Align Bars and Beats?" named nothing and the value was refused.
 - **Undo requests are declined in code** (`is_undo_request`, skipped when question-shaped). A decider prompt line alone let the writer answer "press Command-Z" (wrong for settings, which aren't in Logic's Undo), and a writer-prompt line also denied "how do i undo a cut".
 - **Re-sweep the full battery after changing any list.** Checking only the scenario you were fixing has given false confidence more than once.
 
@@ -100,6 +101,7 @@ There's deliberately no user-facing explain/do mode toggle (user call): the deci
   - "You're looking at their screen." The writer never sees the screenshots and would otherwise say it can't.
   - Live state is appended last so nothing can drop it. It's framed as partial: authoritative for what it lists, silent on the rest.
 - **The moderate-turn hedge is off** (`HEDGE_MODERATE_TURNS`). It fired on correct observations like "which tracks are muted".
+- **A clarifying question with no decider text skips the writer** and goes out as written (`finalize_answer`). Handed the bare question, Haiku answered it about 1 time in 3: it stated option 1 as the diagnosis, or invented a menu path. When the decider also wrote text, the writer runs, told to ask the question as written. Undo requests keep the writer for the in-code decline. Sonnet/Opus write the question as text; Sol (via OpenRouter) asks only through the tool.
 
 ### Confidence tier
 The tier is computed from the trace, deterministically:

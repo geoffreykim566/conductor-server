@@ -48,3 +48,13 @@ def test_offered_text() -> None:
          {"role": "user", "content": "the last one"}]
     assert offered_text(q).startswith("you can choose"), offered_text(q)
     assert offered_text(q[:1]) == ""
+
+
+def test_offered_text_reads_tool_only_question() -> None:
+    """A question asked only through ask_clarifying_question (no text block) offers its options."""
+    q = [{"role": "user", "content": "set smart tempo to beats"},
+         {"role": "assistant", "content": [{"type": "tool_use", "id": "q1", "name": "ask_clarifying_question",
+                                            "input": {"question": "Do you mean On + Align Bars and Beats?"}}]},
+         {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "q1", "content": "{}"}]},
+         {"role": "user", "content": "yes"}]
+    assert offered_text(q) == "do you mean on + align bars and beats?", offered_text(q)

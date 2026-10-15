@@ -112,13 +112,27 @@ async def finalize_answer(
     on_chunk: OnChunk | None,
     usage: list[dict],
     is_clarifying_question: bool = False,
+    question: str = "",
     live_state: str | None = None,
     had_screenshots: bool = False,
     has_actions: bool = False,
 ) -> tuple[str, str]:
     """Compute the tier, build the facts, run the writer. Returns (reply, tier)."""
     tier = confidence_tier(trace, walkthrough_steps, is_clarifying_question)
+    undo = is_undo_request(last_user_text(prior_messages))
+    # A bare question goes out as written: the writer answered it instead (README: Writer).
+    if question and not text.strip() and not undo:
+        if on_chunk:
+            await on_chunk(question)
+        return question, tier
     facts = _facts(tier, trace, text, prior_messages, live_state, had_screenshots, has_actions)
+    if question and not undo:
+        facts = (
+            "This reply asks the user a question and ends there. Ask exactly this question, "
+            "keeping its wording and options:\n\n" + question + "\n\nDon't answer it, guess "
+            "the answer, or give steps or menu paths. If the text below already asks it, ask "
+            "it once.\n\n" + facts
+        )
     resp_text, writer_usage = await write_response(facts, prior_messages, on_chunk)
     usage.append(writer_usage)
     return resp_text, tier
