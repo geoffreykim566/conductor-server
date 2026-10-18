@@ -82,6 +82,13 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
   - Sol's `remaining_actions` not yet empty.
   - A pane-only dropdown whose options the text doesn't name (`ask_options`): Sol writes its answer before seeing the "ask which one" note, so without the follow-up the reply never named them and "the last one" next turn picked Off.
 
+### Turn text (`TurnState.add_text`)
+Every iteration's text is kept, with two exceptions found when Sol's text went to the user unrewritten (10-17; Haiku had hidden both):
+- **A follow-up's restatement replaces the earlier copy.** On the `ask_options` follow-up Sol sometimes rewrote its whole reply, word for word or reworded (4 of 10 sample-rate turns after the replay fix). Only text from a call with no tool call counts as a follow-up: two different action lines ("Press Run to load Compressor…" / "…open Channel EQ…") scored as alike (0.77) as a reworded restatement (0.64), so text beside actions is never merged.
+- **Text beside calls that were all refused gives way to the next call's text.** Sol guessed a dropdown value ("Flex On, Smart Tempo Off"), wrote "Press Run to set …", was refused, then opened the pane and asked; both sentences reached the user (4 times in ~25 dropdown turns). If nothing follows, the text stays, so the turn is never empty.
+
+History keeps both copies; only the reply drops them.
+
 ### Tunables
 - `DECIDER_EFFORT` is medium: the same graded quality as high, ~1 s faster median, ~7% cheaper. Low was no faster and failed more.
 - Thinking is left at the model's default; turning it off explicitly was no faster.

@@ -1,10 +1,20 @@
 """Everything a turn accumulates while its tool loop runs, and rebuilding it from a
 parked transcript on resume (nothing is stored server-side between requests)."""
 import json
+import re
 from dataclasses import dataclass, field
+from difflib import SequenceMatcher
 
 from app import tools
 from app.pipeline.cards import attach_key, endorse_key, mark_replaced, replace_span
+
+
+def _restates(new: str, old: str) -> bool:
+    """`new` is a rewrite of `old`: Sol rewrote its whole reply on the ask_options follow-up,
+    word for word or reworded (sol-log.md, 10-17)."""
+    norm = lambda s: re.sub(r"\s+", " ", re.sub(r"[‘’“”]", "'", s)).strip().lower()
+    a, b = norm(new), norm(old)
+    return b in a or SequenceMatcher(None, a, b).ratio() >= 0.6
 
 
 @dataclass
@@ -19,10 +29,21 @@ class TurnState:
     route_spans: dict[str, tuple[int, int]] = field(default_factory=dict)  # model-called open_setting -> its span
     pick_forced: bool = False  # the one pick-or-ask re-call per turn
     more_actions: bool = False  # the last decider call still owed an action (Sol's remaining_actions)
+    provisional_text: list[str] = field(default_factory=list)  # written beside calls that were all refused
 
     @property
     def steps(self) -> list | None:
         return list(self.card_steps) or None
+
+    def add_text(self, text: str, follow_up: bool = False) -> None:
+        """Keep an iteration's text. Text written beside calls that were all refused gives way to
+        it, and a follow-up's text (no tool call) replaces a part it restates. Only a follow-up:
+        two different action lines ("Press Run to load X" / "...open Y") score as alike as a
+        reworded restatement (README: Turn text)."""
+        drop = set(self.provisional_text)
+        self.provisional_text = []
+        self.text_parts = [p for p in self.text_parts if p not in drop and not (follow_up and _restates(text, p))]
+        self.text_parts.append(text)
 
     def append_steps(self, tool: str, inp: dict, steps: list | None) -> tuple[int, int]:
         start = len(self.card_steps)

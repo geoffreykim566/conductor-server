@@ -61,7 +61,7 @@ async def _decide(i: int, msgs: list[dict], state: TurnState, ctx: TurnContext,
         resp, tool_uses, iter_text = await _call(
             ctx, msgs, usage, nudge=notes.PICK_NUDGE, tool_choice=settings.FORCED_TOOL_CHOICE)
     if iter_text:
-        state.text_parts.append(iter_text)
+        state.add_text(iter_text, follow_up=not tool_uses)
     return resp, tool_uses, iter_text
 
 
@@ -197,6 +197,10 @@ async def run_turn(
             await handle_tool_use(tu, state, ax_fixture, research_denied, usage) for tu in tool_uses
         ]
         msgs.append({"role": "user", "content": tool_results})
+        # "Press Run to set X" beside a refused X would contradict the next call's reply.
+        acted = [json.loads(tr["content"]) for tu, tr in zip(tool_uses, tool_results) if tu.name in tools.ACTION_TOOLS]
+        if iter_text and acted and not any(a.get("attached") for a in acted):
+            state.provisional_text = [iter_text]
 
         if _can_exit_early(tool_uses, tool_results, iter_text, state):
             return await finish()
@@ -217,6 +221,6 @@ async def run_turn(
     usage.append(model_io.usage_dict(final.usage))
     final_text = "".join(b.text for b in final.content if b.type == "text")
     if final_text:
-        state.text_parts.append(final_text)
+        state.add_text(final_text, follow_up=True)
     msgs.append({"role": "assistant", "content": model_io.serialize_content(final.content)})
     return await finish()
