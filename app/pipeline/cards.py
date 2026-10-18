@@ -88,9 +88,10 @@ def mark_replaced(trace: list[dict], name: str) -> None:
             c["output"] = {**c["output"], "attached": False, "replaced": True}
 
 
-def card_descriptions(trace: list[dict]) -> list[str]:
+def card_descriptions(trace: list[dict], ask_note: bool = True) -> list[str]:
     """One plain line per queued step, built from the calls themselves: what the
-    writer is told the card holds."""
+    writer is told the card holds. ask_note=False leaves out a pane-only dropdown's
+    "ask which option" note (the writer rebuilt option lists from it)."""
     out = []
     for c in trace:
         if c["tool"] not in tools.ACTION_TOOLS or not c["output"].get("attached"):
@@ -112,6 +113,7 @@ def card_descriptions(trace: list[dict]) -> list[str]:
             elif chosen:
                 line += f", then sets it to {chosen}"
             elif route.get("choice") is not None:
-                line += f" (opens the pane only -- no value is chosen; {tools.pane_only_ask(route['choice'])})"
+                line += (f" (opens the pane only -- no value is chosen; {tools.pane_only_ask(route['choice'])})"
+                         if ask_note else " (opens the pane only -- no value is chosen)")
             out.append(line)
     return out

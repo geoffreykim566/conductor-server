@@ -1,6 +1,7 @@
 """The writer: a cheaper model that turns the decider's decided facts into the reply,
 never seeing tools, results or confidence. The facts block it gets is built here,
 in code. Why the split and each facts rule exists: README.md (Writer)."""
+from app.core import config
 from app.core.config import WRITER_MODEL
 from app.pipeline import model_io, settings
 from app.pipeline.cards import card_descriptions
@@ -8,6 +9,11 @@ from app.pipeline.confidence import confidence_tier
 from app.pipeline.heuristics import is_undo_request, last_user_text
 from app.pipeline.model_io import OnChunk
 from app.prompts import WRITER_SYSTEM_PROMPT
+
+
+# The in-code undo decline when there's no writer to phrase it (SOL_WRITER "none").
+UNDO_DECLINE = ("I can't undo changes by message yet. Scroll up to that change's card and "
+                "press Revert to put it back.")
 
 
 def plain_history(messages: list[dict]) -> list[dict]:
@@ -40,7 +46,7 @@ async def write_response(
     )
     system = [{"type": "text", "text": system_text}]
     history = plain_history(prior_messages)
-    resp = await model_io.call_model(system, None, history, on_chunk, model=WRITER_MODEL)
+    resp = await model_io.call_model(system, None, history, on_chunk, model=settings.WRITER_MODEL or WRITER_MODEL)
     text = "".join(b.text for b in resp.content if b.type == "text")
     return text, model_io.usage_dict(resp.usage)
 
@@ -59,14 +65,20 @@ def _facts(
     if has_actions:
         # The card's contents come from the calls, not the decider's prose, and
         # nothing on it has run yet.
-        queued = "\n".join(f"- {line}" for line in card_descriptions(trace))
+        queued = "\n".join(f"- {line}" for line in card_descriptions(trace, ask_note=not settings.WRITER_CARD_V2))
+        # v2: v1's "one short sentence" cut manual steps and checklists, and the option note
+        # became option lists the text never offered (sol-log.md, 10-17).
+        rule = ("NONE of them has happened yet: describe them as about to happen, never as done. "
+                "Keep everything else the text below says, including steps the user does by hand "
+                "after the card and any question it asks. Don't add steps, menu paths, options or "
+                "questions it doesn't contain." if settings.WRITER_CARD_V2 else
+                "NONE of them has happened yet. Say in "
+                "one short sentence what the card will do, as about to happen (\"This adds X to "
+                "the selected track\" / \"This opens Y\"), never as done, and don't list manual "
+                "steps for it -- the card does it. Don't mention anything not listed above.")
         facts = (
             "The reply has a card attached, holding exactly these steps, which the user "
-            "runs with one press:\n" + queued + "\n\nNONE of them has happened yet. Say in "
-            "one short sentence what the card will do, as about to happen (\"This adds X to "
-            "the selected track\" / \"This opens Y\"), never as done, and don't list manual "
-            "steps for it -- the card does it. Don't mention anything not listed above.\n\n"
-            + text
+            "runs with one press:\n" + queued + "\n\n" + rule + "\n\n" + text
         )
     if is_undo_request(last_user_text(prior_messages)):
         facts = (
@@ -125,6 +137,13 @@ async def finalize_answer(
         if on_chunk:
             await on_chunk(question)
         return question, tier
+    if config.DECIDER == "sol" and settings.SOL_WRITER == "none":
+        reply = (UNDO_DECLINE if undo else text.strip()) or question
+        if question and not undo and question not in reply:
+            reply += "\n\n" + question
+        if on_chunk:
+            await on_chunk(reply)
+        return reply, tier
     facts = _facts(tier, trace, text, prior_messages, live_state, had_screenshots, has_actions)
     if question and not undo:
         facts = (
