@@ -1444,5 +1444,57 @@
         }
       }
     ]
+  },
+  {
+    "name": "status_after_card_now_what",
+    "note": "2026-10-18 live: 'now what' after a card counted as a go-ahead; the TOOL_NUDGE re-ask replaced Sol's Threshold steps with '...then follow these steps'. The next step's instructions must reach the user.",
+    "expect": {
+      "response_contains_any": [
+        "threshold"
+      ]
+    },
+    "turns": [
+      {
+        "text": "add a compressor to audio 2 with a 3:1 ratio",
+        "ax_fixture": {
+          "selected track": "Audio 2 (audio)",
+          "plugins on Audio 2": "Channel EQ"
+        }
+      },
+      {
+        "text": "ok done. now what",
+        "ax_fixture": {
+          "selected track": "Audio 2 (audio)",
+          "plugins on Audio 2": "Channel EQ, Compressor"
+        }
+      }
+    ]
+  },
+  {
+    "name": "status_after_card_r_blinking",
+    "note": "2026-10-18 live: 'i hit R but its just blinking' after a card counted as a go-ahead; the re-ask reduced Sol's explanation (the track is armed, not recording) to a clarifying question. The explanation must reach the user.",
+    "expect": {
+      "response_contains_any": [
+        "armed",
+        "ready to record",
+        "record-enabled",
+        "record enabled"
+      ]
+    },
+    "turns": [
+      {
+        "text": "create a new audio track for my usb mic",
+        "ax_fixture": {
+          "selected track": "Audio 1 (audio)"
+        }
+      },
+      {
+        "text": "i hit R but its just blinking",
+        "ax_fixture": {
+          "selected track": "Audio 2 (audio)",
+          "Audio 2 record button": "armed (blinking)"
+        }
+      }
+    ]
   }
 ]

@@ -73,7 +73,8 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
   - Whole-project destructive requests (declined with no tool call).
   - Bare greetings, matched against the whole message because "hi" is inside "this".
   - Anything question-shaped.
-- **`FORCED_TOOL_CHOICE` is None** (Sonnet rejected a forced choice with a 400; unmeasured with Sol), so a forced turn whose first call makes no tool call is re-asked once with `TOOL_NUDGE` (`RETRY_NO_TOOL_FIRST_CALL`).
+- **`FORCED_TOOL_CHOICE` is None** (Sonnet rejected a forced choice with a 400; unmeasured with Sol).
+- **The `TOOL_NUDGE` re-ask is off** (`RETRY_NO_TOOL_FIRST_CALL`, 10-18). It was Sonnet's stand-in for forcing: a go-ahead answered with no tool was asked again, and the second call's text replaced the first. With Sol the trigger catches far more than go-aheads (any non-question after a card: "now what", "i hit R but its just blinking"), and in the 10-18 live pass the re-ask replaced a real reply 3/3 times: steps dropped ("…follow these steps" with none), an explanation reduced to a clarifying question. With both knobs off, `force_first_call` has no effect; it stays for a model that accepts a forced choice.
 
 ### Early exit (`respond._can_exit_early`)
 - **The rule:** an iteration whose calls were all accepted actions ends the turn, without the prose-only follow-up call (~2.5 s). Direct commands drop from ~5 s to ~2.5–3 s.

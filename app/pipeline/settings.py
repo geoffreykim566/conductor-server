@@ -8,11 +8,12 @@ MAX_ITERATIONS = 6
 # as high, ~1 s faster median, ~7% cheaper; low was no faster and worse.
 DECIDER_EFFORT: str | None = "medium"
 
-# tool_choice for a go-ahead's first call, which must call a tool. None (auto): a first
-# call that makes no tool call is re-asked once with TOOL_NUDGE instead. Kept from the
-# Sonnet era, which rejected a forced choice; unmeasured forced with Sol.
+# tool_choice for a go-ahead's first call. None (auto). Sonnet rejected a forced choice;
+# unmeasured forced with Sol.
 FORCED_TOOL_CHOICE: dict | None = None
-RETRY_NO_TOOL_FIRST_CALL = True
+# Re-ask a go-ahead's no-tool first call with TOOL_NUDGE. Off: with Sol the re-ask replaced
+# a real reply (README: Forced first call).
+RETRY_NO_TOOL_FIRST_CALL = False
 
 # End the turn after an iteration whose calls were all accepted actions, skipping the
 # prose-only follow-up call.

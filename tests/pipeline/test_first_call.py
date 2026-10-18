@@ -27,9 +27,10 @@ async def test_first_call_not_forced(run) -> None:
 
 
 async def test_go_ahead_without_tool_call_is_reasked(run) -> None:
-    """A go-ahead's first call is auto; one that makes no tool call is re-asked once with TOOL_NUDGE."""
-    result, calls = await run([resp(text_block("Press Run.")), resp(open_plugin("Channel EQ", "a1")), resp(text_block("ok"))],
-                              messages=GO_AHEAD)
+    """RETRY_NO_TOOL_FIRST_CALL on: a go-ahead's first call is auto; one that makes no tool call is re-asked once with TOOL_NUDGE."""
+    with patch.object(settings, "RETRY_NO_TOOL_FIRST_CALL", True):
+        result, calls = await run([resp(text_block("Press Run.")), resp(open_plugin("Channel EQ", "a1")), resp(text_block("ok"))],
+                                  messages=GO_AHEAD)
     assert calls[0].get("tool_choice") is None, calls[0].get("tool_choice")
     assert notes.TOOL_NUDGE in str(calls[1].get("system")), calls[1].get("system")
     assert result.walkthrough_steps, result.walkthrough_steps
@@ -47,6 +48,14 @@ async def test_retry_flag_off(run) -> None:
     with patch.object(settings, "RETRY_NO_TOOL_FIRST_CALL", False):
         result, calls = await run([resp(text_block("Press Run."))], messages=GO_AHEAD)
     assert len(calls) == 1 and not result.walkthrough_steps, (len(calls), result.walkthrough_steps)
+
+
+async def test_status_update_after_card_keeps_first_reply(run) -> None:
+    """Default (re-ask off): "now what" after a card is answered once, and Sol's steps reach the reply."""
+    steps = "1. Play the vocal.\n2. Lower Threshold until you see 3-6 dB of reduction."
+    result, calls = await run([resp(text_block(steps))], messages=CARD_TURN + [{"role": "user", "content": "now what"}])
+    assert len(calls) == 1, len(calls)
+    assert "Lower Threshold" in result.text, result.text
 
 
 @pytest.mark.parametrize("text, forced", [("yes please, do it for me", True), ("thanks!", False)])
