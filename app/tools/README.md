@@ -2,18 +2,17 @@
 
 The decider's tools: their schemas (`TOOLS`) and executors. There are two kinds:
 
-- **Knowledge:** `cite_kb` (records the KB entries an answer used; executor in `app/kb/`), `web_research` (executor in `app/research/`), and `ask_clarifying_question` (carries the question).
+- **Knowledge:** `web_research` (executor in `app/research/`) and `ask_clarifying_question` (carries the question).
 - **Actions:** `open_plugin`, `set_param`, `open_setting`. These don't *do* anything server-side. They validate and emit wire steps that the client runs when the user presses Run.
 
 ## Files
 
 | File | What |
 |---|---|
-| `schemas.py` | The six tool definitions sent to the model, plus `TOOLS` and `ACTION_TOOLS` |
-| `schemas_sol.py` | `SOL_TOOLS`: the same minus `cite_kb`, KB-free wording, `answer` / `remaining_actions` on the actions (why: `pipeline/README.md`, Sol decider) |
-| `actions.py` | Executors for the three action tools; `action_calls` (a KB solution's stored action -> calls) |
+| `schemas.py` | The five tool definitions sent to Sol, with `answer` / `remaining_actions` on the actions (why: `pipeline/README.md`, Sol decider); `TOOLS`, `ACTION_TOOLS`, `SOL_ONLY_ARGS` |
+| `actions.py` | Executors for the three action tools |
 | `choices.py` | Dropdown routes: match a value to an option, check the user named it |
-| `routes.py` | Runnable `ROUTES` (from `app.kb`); how a route is described to the model (desc + path) |
+| `routes.py` | Loads `seed/routes.json`: runnable `ROUTES`, `REFERENCES`; a route's path as text and how it's described to the model |
 | `route_steps.py` | A route's `path` -> client wire steps (menu chains, shortcuts, clicks) |
 | `turn_text.py` | ContextVars holding this turn's user text and the reply it answers |
 
@@ -23,13 +22,11 @@ The decider's tools: their schemas (`TOOLS`) and executors. There are two kinds:
 
 ## Quirks & why
 
-- **Actions are typed tools, not KB rows.** When they were KB rows ("open plugin" behind the old vector lookup), the model had to find them first, and their names collided with plugin vocabulary ("plugin manager", "multipressor").
+- **Actions are typed tools.** When they were KB rows ("open plugin" behind the old vector lookup), the model had to find them first, and their names collided with plugin vocabulary ("plugin manager", "multipressor").
 - **`set_param.value` is a string**, parsed server-side (`_parse_param_value`). A number-or-on/off union wasn't held by the model even under strict mode.
 - **Routes are the only way to navigate.** The model names a route; the path that runs is always `seed/routes.json`'s. Model-written menu paths have been confidently wrong more than anything else in this codebase.
-- **`cite_kb`'s enum is every KB entry name**, so the model can't cite something that doesn't exist. How a citation resolves: `app/kb/README.md`.
-- **`ask_clarifying_question` requires the question text.** Called with no text, the writer had nothing to phrase and invented an answer.
+- **`ask_clarifying_question` requires the question text.** Called with no text, the old writer had nothing to phrase and invented an answer; now the question is the reply (`pipeline/reply.py`).
 - **open_setting's description lists each route's path, plus the reference locations** the model may state but not queue.
-- **The confidence bands (0.40 / 0.60)** are advisory text for the model, not a filter. A hard floor kept admitting a different wrong match on every rephrase. They were tuned at 8 problems and never recalibrated, so gibberish can still read "moderate". Recalibrating was rejected: correct and wrong top-1 distances overlap, so no cutoff separates them. `query_log` holds real queries if it's ever revisited.
 - **No MCP.** One client and one server, both ours: it would add per-call overhead for no interop benefit.
 - **The toggle gate:** a route with `toggle_ax_key` is refused when live state says it's already in its target state, because running it would flip it *away*.
 
@@ -43,13 +40,12 @@ The decider's tools: their schemas (`TOOLS`) and executors. There are two kinds:
 - **`picks`:** a route fixed to one option ("flex pitch") ends on a `choose` step, not a click. The client closes stray menus before every step except a choose, and a choose ledgers the old value for Revert.
 - **`wait_for_run`:** the route's target depends on the user's selection, so its card never auto-runs.
 - An ambiguous value ("flex on" fits four options) is refused with the list, so the reply asks which one.
-- **The ask note quotes each option** (`pane_only_ask`): options hold commas ("Flex On, Smart Tempo On"), and a `|`-separated list came out of the writer as wrong, mangled options.
+- **The ask note quotes each option** (`pane_only_ask`): options hold commas ("Flex On, Smart Tempo On"), and a `|`-separated list came out of the old writer as wrong, mangled options.
 - **Offered options count as the user's pick** (user call: users shouldn't have to type option names). It's a word match on the previous decider text, including a question asked only through `ask_clarifying_question`, so any option it mentioned is allowed; a first turn has none.
 - **`_user_named` compares letters and digits only** (no punctuation needed) and reads "smart tempo" as Logic's "ST" abbreviation.
-- **`processing threads` has `model_may_pick: []`:** the KB says max threads, not "Automatic", and the client can't pick a number, so the card stops at the pane.
+- **`processing threads` has `model_may_pick: []`:** the fix is max threads, not "Automatic", and the client can't pick a number, so the card stops at the pane.
 
 ## Adding things
 
 - **A route:** add it to `seed/routes.json` (`desc`, `path`, optional `choice` / `picks` / `wait_for_run` / `toggle_ax_key`). Verify the path live in Logic first. Rebuild (it's read at import).
-- **A KB solution that maps to an action:** set its `action` in `seed/problems.json` (`{"open_setting": "route name"}`, `{"open_setting": {"name", "value"}}` or `{"open_plugin": {...}}`). `app/kb/data.py` rejects unknown routes at import.
-- **A new action tool:** schema in `schemas.py` + `ACTION_TOOLS`, executor in `actions.py`, a case in `action_calls`, then the pipeline side (`app/pipeline/README.md`, Adding things), then the client executor.
+- **A new action tool:** schema in `schemas.py` + `ACTION_TOOLS`, executor in `actions.py`, then the pipeline side (`app/pipeline/README.md`, Adding things), then the client executor.

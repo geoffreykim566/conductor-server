@@ -7,63 +7,65 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
 | File | What |
 |---|---|
 | `respond.py` | The turn loop (`run_turn`) and the auto-run decision (`respond`) |
-| `dispatch.py` | Runs one tool call against the card: dup/endorse/replace/cap/commit-to-one rules, citation auto-attach |
+| `dispatch.py` | Runs one tool call against the card: duplicate, re-visited setting and cap rules |
 | `executors.py` | Tool name -> executor; status line while a tool runs |
-| `turn_state.py` | `TurnState` (trace, card steps, spans) and rebuilding it on resume |
-| `cards.py` | Action identity keys, bucket candidates, span bookkeeping, `card_descriptions` |
-| `context.py` | System prompt blocks, live-state block, screenshot splice, cache breakpoints |
+| `turn_state.py` | `TurnState` (trace, card steps, spans, turn text) and rebuilding it on resume |
+| `cards.py` | Action identity keys and span bookkeeping |
+| `context.py` | System prompt, live-state block, screenshot splice |
+| `reply.py` | The reply: Sol's text, the undo decline, a tool-only question appended; streams it |
 | `heuristics.py` | Reads of the user's own text: question? undo? greeting/closer? a go-ahead after a card? |
 | `backfill.py` | Re-shows an earlier card on "show me that again" |
 | `confidence.py` | Confidence tier from the trace; research sources |
-| `writer.py` | Builds the writer's facts block and runs the writer |
-| `model_io.py` | The only model call site (routes the Sol decider to `openai_io`); response -> request-shape dicts |
-| `openai_io.py` | The Sol decider on OpenAI's Responses API, translated to and from Anthropic-shaped blocks |
+| `model_io.py` | The only decider call site; response blocks -> request-shape dicts |
+| `openai_io.py` | The Sol decider on OpenAI's Responses API, translated to and from the pipeline's blocks |
 | `transcript.py` | Turn boundary and pending tool calls in a message list |
-| `settings.py` | Tunables (`MAX_ITERATIONS`, decider effort, forced tool choice, early exit, ...) |
-| `notes.py` | Fixed text handed to the decider (refusals, nudges, card notes) |
+| `settings.py` | Tunables (`MAX_ITERATIONS`, decider effort, early exit, ...) |
+| `notes.py` | Fixed text: refusals and nudges for the decider, the undo decline for the user |
 | `result.py` | `Result` dataclass |
 
 ## How a turn flows
 
-1. **Context.** The system prompt is the static decider prompt: Sol's (`prompts/decider_sol.py`, no KB) or Sonnet's with the whole KB (`app/kb/`), per `config.DECIDER`. Plus a live-state block (the client's AX dump, or the battery's `ax_fixture`). The screenshots are spliced into this turn's user message for each call only.
-2. **Decider loop** (≤ `MAX_ITERATIONS`). The decider (Sol or `config.MODEL`, effort `settings.DECIDER_EFFORT`) is called with its tools (`TurnContext.tools`). It answers, cites the KB entries it used (`cite_kb`), and calls actions, usually all in one response.
+1. **Context.** The system prompt (`prompts/decider.py`) plus a live-state block (the client's AX dump, or the battery's `ax_fixture`). The screenshots are spliced into this turn's user message for each call only.
+2. **Decider loop** (≤ `MAX_ITERATIONS`). Sol (`config.SOL_MODEL`, effort `settings.DECIDER_EFFORT`) is called with its tools. It answers and calls actions; its reply rides on the first action call's `answer` argument.
    - The first call is unforced, except for a go-ahead after a card (Forced first call, below).
    - Each tool call goes through `dispatch.handle_tool_use`, which updates the card.
-   - The text the decider writes in every iteration is kept, not just in the last one.
-3. **The turn ends** when the decider stops calling tools, an iteration qualifies for early exit, the decider calls `ask_clarifying_question`, or it runs out of iterations. Running out gets one tools-off "answer now" call, so a turn is never empty.
-4. **Writer.** A cheaper model (`config.WRITER_MODEL`) phrases the reply from a facts block built in code (`writer._facts`). Only the writer streams to the client.
+   - Every iteration's text is kept (Turn text, below).
+3. **The turn ends** when Sol stops calling tools, an iteration qualifies for early exit, Sol calls `ask_clarifying_question`, or it runs out of iterations. Running out gets one tools-off "answer now" call, so a turn is never empty.
+4. **Reply.** `reply.finalize_reply`: Sol's text, as written.
 5. **Auto-run.** `respond` decides whether the card may run without the user pressing Run.
 
 ## Conventions
 
-- **Read tunables as `settings.X` at call time**, never `from app.pipeline.settings import X`. Tests and `evals/latency_variants.py` patch them on the module.
-- **Call the model only through `model_io.call_model`**, by module attribute. Tests patch `model_io._client.messages.create` (pinned to the Sonnet path by an autouse fixture) or `openai_io._client.post` for Sol, and the latency harness swaps `model_io.call_model`.
+- **Read tunables as `settings.X` at call time**, never `from app.pipeline.settings import X`. Tests patch them on the module.
+- **Call the decider only through `model_io.call_model`**, by module attribute. Tests patch `model_io.call_model` (the `run` fixture) or `openai_io._client.post` (the Responses translation).
 - **Executors are looked up in `executors.EXECUTORS`** (tests `patch.dict` it). `research` and `tools` are reached as module attributes for the same reason.
-- **Code decides, prompts don't.** Anything that has to hold every time is enforced here, not requested in a prompt: commit-to-one, auto-run, "nothing has run yet", the confidence tier. Prompt-only versions of these held ~40–50% of the time.
+- **Code decides, prompts don't.** Anything that has to hold every time is enforced here, not requested in a prompt: auto-run, the undo decline, the turn-text rules, the confidence tier. Prompt-only versions of rules like these held ~40–50% of the time.
 
 ## Quirks & why
 
-### Sol decider (`config.DECIDER = "sol"`, the default)
+### Sol decider
 - **Why Sol, with no KB.** The KB-strict Sonnet prompt missed general troubleshooting (hidden main window; ChatGPT and Gemini answered it at once). In the 10-12 to 10-15 A/B, GPT-6.1 Sol answering from its own Logic knowledge matched Opus + KB on the core battery, made fewer wrong UI claims (0% vs 8%), ran faster (median 6.1 s vs 6.9 s) at a third of the cost, and won the user's blind read on concision. Details: `diagnosis-log.md` (archived with the logs).
-- **What grounds it instead of the KB:** the approved routes (`open_setting`; every card's path still comes from `seed/routes.json`), a short "Logic facts" list in its prompt for things it got wrong unaided, and `web_research` only when it has no answer of its own. Add a fact when a miss repeats; keep each one worded as a plain fact, not a symptom match.
-- **The prompt is its own file**, the exact text that was tested, not derived from `decider.py`. Edit it directly and re-run the battery.
+- **No fallback model (user call, 10-17).** The Sonnet decider, its KB and the Haiku writer were removed rather than kept as a rollback: keeping a second path working wasn't worth its upkeep. The old path is tag `archive/v042-sonnet-kb`; the KB content is in `~/Desktop/OLD Conductor/kb-2026-10-17/`. An OpenAI outage is an error to handle, not a reason to switch models (open item in the feature log).
+- **What grounds it:** the approved routes (`open_setting`; every card's path comes from `seed/routes.json`), a short "Logic facts" list in its prompt for things it got wrong unaided, and `web_research` only when it has no answer of its own. Add a fact when a miss repeats; keep each one worded as a plain fact, not a symptom match.
+- **The prompt and tools are the exact tested text.** Edit them directly and re-run the battery. The prompt still lists "cite_kb", "KB" among words never to say: harmless, left so the tested text stays byte-identical.
 - **Responses API, not Chat Completions:** OpenAI doesn't support function calling with Sol on Chat Completions. `store` is off; Sol's encrypted reasoning items are replayed within a turn (OpenAI recommends it) but never enter history.
-- **`answer` arg on the action tools:** Sol never writes text beside a tool call, so a card turn ended with no explanation, and asking for it took a second call (~5 s). The reply now rides on the first action call and the adapter turns it into the text block. Written text wins if Sol writes both.
+- **`answer` arg on the action tools:** Sol never writes text beside a tool call, so a card turn ended with no explanation, and asking for it took a second call (~5 s). The reply now rides on the first action call and the adapter turns it into the text block. Written text wins if Sol writes both (logged as `[sol_answer_dropped]`; an unconfirmed cause of a 10-15 reply that lost its steps).
 - **`remaining_actions` arg:** Sol queues one action per response even when a request needs several (an explicit `parallel_tool_calls` didn't change that), and early exit then dropped the rest ("add a compressor at -18" lost the threshold). A yes/no "more coming" flag still lost the last of three live ("compressor and eq with low cut" lost the low cut 2/3); listing what's left makes Sol plan, and the turn continues while the list is non-empty (`more_actions` on the response, `TurnState.more_actions`). 10/10 after.
 - **Sol sees its own calls as it made them.** The adapter strips `answer` / `remaining_actions` before anything runs, but replays them (and the response's reasoning) into the turn's later calls from a per-turn stash, so Sol still sees its plan. Text synthesized from `answer` is replayed as Sol's own message, with `answer` left out of the call: seeing its reply only inside the call, Sol wrote the whole reply again on a follow-up call (the `ask_options` one), and both copies were kept (9/96 core turns, 10-16). A note telling it the reply was already shown changed nothing.
-- **Empty args are dropped** (Sol sends `value: ""` for an omitted optional one, which the dropdown routes refused), and **malformed tool JSON is retried** like a 429 (Sol once sent truncated arguments).
-- **Rollback:** set `DECIDER=sonnet` (Railway variable) for Sonnet 5.5 with the KB; nothing else changes. `config.decider_model()` is what events record.
+- **Empty args are dropped** (Sol sends `value: ""` for an omitted optional one, which the dropdown routes refused), and **malformed tool JSON is retried** like a 429 (Sol once sent truncated arguments). `[sol_text]` logs Sol's text per call.
+
+### Reply (`reply.finalize_reply`)
+- **No writer model.** A Haiku writer used to reword the decider's text, because Sonnet leaked its own machinery into replies. Sol doesn't. In the 10-17 A/B on identical Sol text (118 turns), no writer dropped and invented nothing and saved ~1 s; Haiku 4.5 cut 9 replies well below Sol's text (steps, questions) and invented 2 picks; Haiku 5.5 with a keep-the-steps card block kept content but recited the card rule on ~25 turns. Run outputs: `test_runs/2026-10-17/wab_*`.
+- **What the writer did that code now does:** the undo decline (`notes.UNDO_DECLINE`, whatever Sol wrote; typed undo is denied for now, the card's Revert button does it), and a question asked only through `ask_clarifying_question` reaching the user (appended unless the text already holds it). It also used to hide Sol's duplicate and refused-call text (Turn text, below).
+- The reply goes to the client as a single chunk event, since Sol's call doesn't stream (the writer used to stream token by token). Check it renders the same in the live pass.
 
 ### One card per turn
-- Every action, whether the model called it or a citation queued it, is a step on the same card, in call order. The card holds at most `MAX_ATTACHES_PER_TURN` steps.
-- **Commit-to-one:** a *different solution* from the same problem bucket is an alternative fix, not a second request, so it's refused with `FALLBACK_REFUSAL`. Before this, the last candidate silently won and contradicted the reply. Candidates are keyed by solution: one solution's several actions ("do both": buffer size + low latency mode) are one pick.
-- **Auto-attach:** a cited solution with an action (`recommended` in the cite_kb result) gets that action queued if the model didn't call it, because the model often explained the fix and never made the second call. Commit-to-one also holds inside one citation. The result records it as `on_card`; that is the only record, which is why `turn_state` and `backfill` read it.
-- **Endorsement:** if the model then calls the same action (same target, by `endorse_key`), its version replaces the queued step and the step counts as model-called.
+- Every action is a step on the same card, in call order. The card holds at most `MAX_ATTACHES_PER_TURN` steps.
+- **Duplicates** (same tool + args) are refused: the step runs once.
 - **Re-visited setting:** a second `open_setting` for the same route replaces the first. The later call is the correction the prose follows.
-- **Pick-or-ask:** citing only a bucket doesn't auto-attach. If the decider would end on prose with actionable candidates and an empty card, it's re-asked once (`PICK_NUDGE`) to act on one or ask.
 
 ### Forced first call (`heuristics.force_first_call`)
-- **Normally the first call is unforced.** With the KB in the prompt, one response can answer, cite and act. Forcing a tool makes the API suppress text before the call, which costs a second call just to write the explanation.
+- **Normally the first call is unforced.** Forcing a tool makes the API suppress text before the call.
 - **The one forced case** is a go-ahead after a reply that queued a card ("yes please, do it"). Unforced, it got "press Run" about the earlier card.
 - **Exemptions:**
   - Re-asks (forcing would starve backfill).
@@ -71,14 +73,12 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
   - Whole-project destructive requests (declined with no tool call).
   - Bare greetings, matched against the whole message because "hi" is inside "this".
   - Anything question-shaped.
-- **Sonnet 5.5 returns a 400 on forced `tool_choice`**, so `FORCED_TOOL_CHOICE` is None. A forced turn whose first call makes no tool call is re-asked once with `TOOL_NUDGE` (`RETRY_NO_TOOL_FIRST_CALL`).
+- **`FORCED_TOOL_CHOICE` is None** (Sonnet rejected a forced choice with a 400; unmeasured with Sol), so a forced turn whose first call makes no tool call is re-asked once with `TOOL_NUDGE` (`RETRY_NO_TOOL_FIRST_CALL`).
 
 ### Early exit (`respond._can_exit_early`)
-- **The rule:** an iteration whose calls were all accepted actions and/or citations ends the turn, without the prose-only follow-up call (~2.5 s). Direct commands drop from ~5 s to ~2.5–3 s.
-- **A citing iteration must already have written its explanation.** Skipping the follow-up once lost the diagnosis.
+- **The rule:** an iteration whose calls were all accepted actions ends the turn, without the prose-only follow-up call (~2.5 s). Direct commands drop from ~5 s to ~2.5–3 s.
 - **Exceptions that keep looping:**
   - Any refusal or error, so the decider can react.
-  - A pending pick.
   - Sol's `remaining_actions` not yet empty.
   - A pane-only dropdown whose options the text doesn't name (`ask_options`): Sol writes its answer before seeing the "ask which one" note, so without the follow-up the reply never named them and "the last one" next turn picked Off.
 
@@ -91,8 +91,6 @@ History keeps both copies; only the reply drops them.
 
 ### Tunables
 - `DECIDER_EFFORT` is medium: the same graded quality as high, ~1 s faster median, ~7% cheaper. Low was no faster and failed more.
-- Thinking is left at the model's default; turning it off explicitly was no faster.
-- Haiku as decider was rejected (`app/core/README.md`).
 
 ### Heuristics phrase lists
 - They're hand-curated and deliberately narrow.
@@ -100,52 +98,32 @@ History keeps both copies; only the reply drops them.
 - "cant find it" was removed after it matched 7 battery turns.
 - The destructive list is project-scoped only, because "delete everything on this track" is undo-able.
 - **`offered_text` also reads `ask_clarifying_question`'s question.** A question asked only through the tool offers options too; without it, "yes" after "do you mean On + Align Bars and Beats?" named nothing and the value was refused.
-- **Undo requests are declined in code** (`is_undo_request`, skipped when question-shaped). A decider prompt line alone let the writer answer "press Command-Z" (wrong for settings, which aren't in Logic's Undo), and a writer-prompt line also denied "how do i undo a cut".
+- **Undo requests are declined in code** (`is_undo_request`, skipped when question-shaped). A prompt line alone let a reply say "press Command-Z" (wrong for settings, which aren't in Logic's Undo), and a broader rule also denied "how do i undo a cut".
 - **Re-sweep the full battery after changing any list.** Checking only the scenario you were fixing has given false confidence more than once.
 
 ### Auto-run (`respond.respond`)
 A card runs without Run only when all of these hold:
 - the user's message is a direct instruction (not question-shaped, not bulk);
-- nothing was cited this turn (a fix inferred from a diagnosis always waits);
+- the card isn't a re-shown one (backfill);
 - no route on the card has `wait_for_run`.
 
-This exists because a "bypass control surfaces" card off a moderate match once auto-ran on a turn whose own reply said "I don't have a verified fix".
+The KB era also held back any card a citation led to (a "bypass control surfaces" card off a moderate match once auto-ran on a turn whose own reply said "I don't have a verified fix"). That guard went with the citations, so a symptom phrased as a command ("my vocal sounds muddy, fix it") now auto-runs the fix Sol picks, when the client's auto-run setting is on. Open item in the feature log.
 
 There's deliberately no user-facing explain/do mode toggle (user call): the decider picks per turn, and the Run press stays the floor for anything the rules above don't clear.
 
-### Writer
-- **Why there's a separate writer.** The decider leaked its own vocabulary into replies ("that result isn't relevant"), and a word-ban list couldn't close the leak. The writer only *phrases*: it never sees tools, results, or confidence.
-- **The writer's facts block is built in code:**
-  - The card's contents come from `card_descriptions(trace)`, not the decider's prose. On a citation-queued card the decider may never mention the step.
-  - "None of this has run yet." The writer once said "Loaded X" before anything ran, and the next turn believed it.
-  - The undo-request decline. Typed undo is denied for now; the card's Revert button does it.
-  - "You're looking at their screen." The writer never sees the screenshots and would otherwise say it can't.
-  - Live state is appended last so nothing can drop it. It's framed as partial: authoritative for what it lists, silent on the rest.
-- **The moderate-turn hedge is off** (`HEDGE_MODERATE_TURNS`). It fired on correct observations like "which tracks are muted".
-- **A clarifying question with no decider text skips the writer** and goes out as written (`finalize_answer`). Handed the bare question, Haiku answered it about 1 time in 3: it stated option 1 as the diagnosis, or invented a menu path. When the decider also wrote text, the writer runs, told to ask the question as written. Undo requests keep the writer for the in-code decline. Sonnet/Opus write the question as text; Sol (via OpenRouter) asks only through the tool.
-
 ### Confidence tier
-The tier is computed from the trace, deterministically:
-- a clarifying question -> generic;
-- a card -> strong;
-- successful research -> research;
-- no tools called -> generic;
-- otherwise strong / moderate / generic from the citations.
-
-A weak hit counts as no attempt. A strong *diagnosis* whose solutions carry no action doesn't count as strong. The client badge is disabled (see `app/api/README.md`); the tier is still used by the battery and the logs. **Known gap:** the tier certifies the destination, not every claim the prose adds on top of it.
+Computed from the trace, deterministically: a clarifying question -> generic; a card -> strong; successful research -> research; otherwise generic. The moderate tier came from KB citations and went with them. The client badge is disabled (see `app/api/README.md`); the tier is still recorded in events and used by the battery.
 
 ### Backfill
 If the user asks to see something again and the model answers from memory with no tool call, the earlier route is re-attached. It's gated on re-ask language in the *user's* message: matching the destination name in the reply misfired when a topic recurred for other reasons. Zero or several candidates are left alone. Hostile phrasings are covered in `tests/pipeline/test_backfill.py`.
 
 ### Context & caching
-- **Three cache breakpoints:** the static prompt, the live-state block, and this turn's user message. Iterations 2+ read the prefix from cache (~9k -> <2.5k uncached tokens per call on a screenshot turn).
-- **Live state is its own block.** While it was concatenated into the prompt, the static prompt never hit the cache across turns.
-- **Screenshots and `cache_control` only ever go on the per-call copy** (`TurnContext.for_call`), never into `msgs`. `msgs` is the next turn's history, and the API validator rejects images and extra keys there.
+- **Live state is its own system block** after the static prompt, so the prompt prefix stays identical across turns. OpenAI caches the prefix automatically (`prompt_cache_key` groups the calls); no breakpoints are set.
+- **Screenshots only ever go on the per-call copy** (`TurnContext.for_call`), never into `msgs`. `msgs` is the next turn's history, and the history validator rejects images there.
 
 ### History round-trip
-- `model_io.serialize_content` turns SDK blocks into plain dicts. Raw response objects carry fields the request schema rejects, which broke turn 2.
-- **History is the decider's transcript.** The writer's reply never enters it, so the next turn (including the offered-option check, `heuristics.offered_text`) reads what the decider wrote, not what the user saw.
-- Thinking blocks are dropped: the validator doesn't accept them, and this non-interleaved loop doesn't need them.
+- `model_io.serialize_content` turns response blocks into plain dicts for history.
+- **History is the decider's transcript**, so the next turn (including the offered-option check, `heuristics.offered_text`) reads what Sol wrote. It keeps the duplicate and refused-call text the reply drops.
 
 ### Research approval
 - With `research_confirm`, a `web_research` call parks the turn *before any tool in that batch runs*. The client then resumes with the whole batch, so every `tool_use` gets exactly one `tool_result`.
@@ -154,6 +132,6 @@ If the user asks to see something again and the model answers from memory with n
 
 ## Adding things
 
-- **A tool:** add its schema and executor in `app/tools/`, register it in `executors.EXECUTORS`, and add a status line if it's slow. If it queues steps, add it to `tools.ACTION_TOOLS` plus an `endorse_key` / `card_descriptions` case.
+- **A tool:** add its schema and executor in `app/tools/`, register it in `executors.EXECUTORS`, and add a status line if it's slow. If it queues steps, add it to `tools.ACTION_TOOLS` plus an `endorse_key` case.
 - **A rule about the user's message:** add it to `heuristics.py` with a unit test, then sweep the battery.
 - **A tunable:** add it to `settings.py` and read it as `settings.X`.

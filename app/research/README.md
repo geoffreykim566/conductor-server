@@ -9,8 +9,8 @@
 
 ## How it's wired
 
-- **The decider decides when to research.** The tool description is the only trigger. Firing it on every KB miss was rejected as the costlier, more eager option.
-- **Research on a KB miss is the intended fallback** (user call), so a turn that escalates to research when nothing in the KB fits isn't graded as a failure.
+- **The decider decides when to research.** The tool description is the only trigger. Firing it on every miss was rejected as the costlier, more eager option.
+- **Research when Sol has no answer of its own is the intended fallback** (user call), so a turn that escalates to research isn't graded as a failure.
 - **`_usage`** is popped by `pipeline/dispatch.py`. It counts toward the turn's spend but never reaches the model.
 - **The "research" tier:** a successful call earns it (`pipeline/confidence.py`), trusted like "strong". A timed-out or empty call doesn't. Sources reach the client as chips.
 - **With `research_confirm`,** the turn parks for user approval before this runs (`pipeline/README.md`, Research approval).
@@ -21,4 +21,5 @@
 - **Timeout is 150s** (`RESEARCH_CALL_TIMEOUT_S`). There's no retry on timeout, so one slow call just fails.
 - **`source_tier` is computed but unused.** The fine-grained tier (confirmed / community / genre-inference) never reaches the confidence tier.
 - **The `parse_confidence` regex misses bold `**CONFIDENCE:**`** and silently defaults to `commonly_believed`. Harmless while `source_tier` is unused.
-- **Mixed turns:** a mixed KB + research turn can state web-sourced specifics under a "strong" tier inherited from an unrelated card. Not fixed.
+- **Mixed turns:** a turn with a card and research can state web-sourced specifics under a "strong" tier inherited from the card. Not fixed.
+- **Still on Claude** (`RESEARCH_MODEL`, `CENTRAL_ANTHROPIC_KEY`): the nested call uses Anthropic's web-search tool. Porting it to OpenAI is the next piece of work (feature log).

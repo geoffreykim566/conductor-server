@@ -1,13 +1,13 @@
 # tests/
 
-pytest unit tests. Deterministic: the model is mocked, nothing hits the Anthropic,
-web-search APIs, and no test needs the database.
+pytest unit tests. Deterministic: the decider is mocked, nothing hits the OpenAI,
+Anthropic or web-search APIs, and no test needs the database.
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `conftest.py` | Shared fakes: response builders, KB/route helpers, the `model` / `research` / `run` fixtures |
+| `conftest.py` | Shared fakes: response builders, route helpers, the `model` / `research` / `run` fixtures |
 | `api/` | Request validation (`app.api.schemas`) |
 | `core/` | Budget breaker, rate-limit keying, ID signing (`app.core`) |
 | `pipeline/` | One turn end to end through `pipeline.respond()`, plus its helpers, one concern per file |
@@ -36,11 +36,12 @@ docker compose -p <name> -f docker-compose.yml -f docker-compose.standalone.yml 
 - pytest + pytest-asyncio in auto mode (`pyproject.toml`): write `async def test_...`, no marker needed.
 - Never hit the API. Drive a turn with the `run` fixture:
   `result, decider_calls = await run([resp(...), ...], messages=[...], early_exit=False, **respond_kwargs)`.
-  Decider calls take the scripted responses in order (last repeats); the writer call gets "writer text".
-  `cite_kb` runs for real (`app.kb.cite` on `seed/problems.json`): cite real entry names via
-  `cite_kb([...], id)`. `web_research` is the `research` mock. `settings.EARLY_EXIT_ON_ACTION`
+  It patches `model_io.call_model`: decider calls take the scripted responses in order (last
+  repeats), recorded as dicts (`system`, `tools`, `messages`, `tool_choice`). The Responses
+  translation itself is tested against a mocked `openai_io._client.post` (`test_sol_decider.py`).
+  `web_research` is the `research` mock. `settings.EARLY_EXIT_ON_ACTION`
   is off unless `early_exit=True`, so scripts keep the decider going after an action.
-- Builders come from conftest: `from conftest import resp, text_block, tool_use, single, bucket, route, ...`.
+- Builders come from conftest: `from conftest import resp, text_block, tool_use, open_plugin, route, ...`.
   Keep `tests/conftest.py` the only conftest so that import stays unambiguous.
 - Tunables: `patch.object(settings, "NAME", value)` on `app.pipeline.settings`. Never
   `from app.pipeline.settings import NAME` -- the code reads them at call time.

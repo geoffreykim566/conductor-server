@@ -30,7 +30,7 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 
 **Events, in order:**
 - `status` (zero or more)
-- `chunk` (writer text, streamed)
+- `chunk` (the reply text, as one chunk)
 - then exactly one of:
   - `done`: `event_id`, `remaining`, `sources`, `walkthrough_steps`, `auto_run`, `history`
   - `research_prompt`: `query`, `history`

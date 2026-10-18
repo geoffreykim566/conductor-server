@@ -1,20 +1,18 @@
 # prompts
 
-System prompts, one file per model role. Each file is a single string constant; `__init__.py` re-exports them.
+The decider's system prompt: one string constant, re-exported by `__init__.py`.
 
 | File | Constant | Used by |
 |---|---|---|
-| `decider_sol.py` | `SOL_SYSTEM_PROMPT` | `pipeline/context.py` when `DECIDER=sol`: no KB, own grounding, Logic facts |
-| `decider.py` | `SYSTEM_PROMPT` | `pipeline/context.py` when `DECIDER=sonnet`, with the KB appended |
-| `writer.py` | `WRITER_SYSTEM_PROMPT` | `pipeline/writer.py`, with the turn's facts appended |
+| `decider.py` | `SYSTEM_PROMPT` | `pipeline/context.py`: Sol's prompt. No KB; its own grounding rules and a short "Logic facts" list |
 
 ## Quirks & why
 
-- **The writer prompt never mentions tools, the KB, confidence, or any of the machinery.** It exists to stop the decider's vocabulary leaking into replies, which a word-ban list in the decider prompt couldn't fully close. The writer gets already-decided facts to phrase, never raw tool results.
-- **Prompt-only rules are requests, not guarantees.** If something must hold every time (a cap, a refusal, "nothing has run yet"), enforce it in `pipeline/` code and keep the prompt line as guidance only. Prompt-only versions have held roughly 40–50% of the time.
+- **It's the exact tested text** (`solj_facts2`, 10-15). The 10-17 refactor checked it byte for byte. It still lists "cite_kb", "KB" among words never to say, from the Sonnet era; harmless, left so the tested text stays identical until the next prompt change re-runs the battery anyway.
+- **Prompt-only rules are requests, not guarantees.** If something must hold every time (a cap, a refusal, the undo decline), enforce it in `pipeline/` code and keep the prompt line as guidance only. Prompt-only versions have held roughly 40–50% of the time.
 - **Live AX state is authoritative only for what it lists; the screenshot is evidence for the rest.** Calling AX "ground truth that outranks screenshots" made the model defer to an incomplete dump and say it couldn't see the screen.
-- **The dropdown paragraph is behaviour only.** Which value to recommend for a setting (buffer, flex, threads) lives in the KB rows, so prompt and KB can't contradict each other.
-- **The decider prompt is cached.** Keep it byte-identical across turns. Anything per-turn goes in its own system block (`pipeline/context.py`) so the cache still hits.
+- **Keep the prompt byte-identical across turns.** Anything per-turn goes in its own system block (`pipeline/context.py`) so the prefix still caches.
+- **Logic facts:** add one when a miss repeats, worded as a plain fact, not a symptom match.
 
 ## Changing a prompt
 
