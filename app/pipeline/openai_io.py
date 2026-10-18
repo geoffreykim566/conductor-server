@@ -117,7 +117,8 @@ def _blocks(j: dict) -> tuple[list, list[str], list[dict], dict, bool]:
     return blocks, remaining, reasoning, sol_args, bool(written and not real)
 
 
-async def _post(body: dict) -> dict:
+async def post(body: dict) -> dict:
+    """One Responses call, retried on 429 / 5xx / malformed tool JSON. Also web_research's."""
     headers = {"Authorization": "Bearer " + config.OPENAI_API_KEY}
     for attempt, delay in enumerate((*RETRY_DELAYS_S, None)):
         try:
@@ -162,7 +163,7 @@ async def call_decider(system: list[dict], tools_param: list[dict] | None, msgs:
             "store": False, "include": ["reasoning.encrypted_content"],
             "prompt_cache_key": "conductor-decider-sol"}
     t0 = time.monotonic()
-    j = await _post(body)
+    j = await post(body)
     blocks, remaining, reasoning, sol_args, synth = _blocks(j)
     calls = [b for b in blocks if b.type == "tool_use"]
     for b in calls:

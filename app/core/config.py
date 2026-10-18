@@ -2,7 +2,6 @@
 Why each value is what it is: app/core/README.md."""
 import os
 
-CENTRAL_ANTHROPIC_KEY = os.environ.get("CENTRAL_ANTHROPIC_KEY", "")
 CONDUCTOR_ID_SECRET = os.environ.get("CONDUCTOR_ID_SECRET", "")
 RATE_LIMIT = os.environ.get("RATE_LIMIT", "10/minute")
 REGISTER_RATE_LIMIT = os.environ.get("REGISTER_RATE_LIMIT", "5/day")
@@ -18,9 +17,10 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 SOL_MODEL = "gpt-6.1-sol"
 # Responses counts reasoning in output tokens; 3072 left too little room.
 SOL_MAX_OUTPUT_TOKENS = 8192
-# web_research's nested call (Sonnet 5 timed out at 150s on half the battery's calls).
-RESEARCH_MODEL = "claude-sonnet-5-5"
-# 90s timed out every real research call.
+# web_research's nested call is Sol with OpenAI's web_search tool; it only extracts
+# findings, so low effort (app/research/README.md).
+RESEARCH_EFFORT = "low"
+# 90s timed out every real research call (Claude era); kept as the ceiling.
 RESEARCH_CALL_TIMEOUT_S = float(os.environ.get("RESEARCH_CALL_TIMEOUT_S", "150.0"))
 
 FREE_LIMIT = int(os.environ.get("FREE_LIMIT", "50"))

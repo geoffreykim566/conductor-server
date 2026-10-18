@@ -21,8 +21,8 @@ def pending_research_query(history: list[dict] | None) -> str | None:
 def trim_history(messages: list[dict]) -> list[dict]:
     """Keep the newest MAX_HISTORY_MESSAGES, snapped forward to the next real
     turn boundary (a plain-string user message) so a trim never starts on a
-    dangling tool_result whose tool_use got cut — that shape is rejected by
-    the Anthropic API outright. If no such boundary exists in the window
+    dangling tool_result whose tool_use got cut — a call output with no call
+    is malformed history (it was rejected outright by the Anthropic API). If no such boundary exists in the window
     (a pathologically long single tool-loop), don't truncate at all rather
     than risk sending a broken message list.
     """

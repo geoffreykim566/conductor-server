@@ -16,7 +16,7 @@ Shared infrastructure that every other package imports. Nothing in here imports 
 
 - **Models:**
   - `SOL_MODEL` is the only decider: GPT-6.1 Sol on OpenAI's Responses API, needs `OPENAI_API_KEY` (why, and why there's no fallback model: `pipeline/README.md`, Sol decider). `SOL_MAX_OUTPUT_TOKENS` is 8192 because Responses counts reasoning as output.
-  - `RESEARCH_MODEL` is still Claude (Sonnet 5.5, on `CENTRAL_ANTHROPIC_KEY`) until `web_research` is ported to OpenAI: on Sonnet 5 half the battery's research calls hit the 150 s timeout.
+  - Research runs on Sol too, at `RESEARCH_EFFORT` low (`research/README.md`). No Anthropic key or package is used anywhere.
   - Changing the decider model needs a battery run first.
   - Haiku as decider was rejected: it missed cards, and its prompt fell under Haiku's 4096-token cache minimum, so it cost more per turn.
 - **`RESEARCH_CALL_TIMEOUT_S` = 150s.** 90s timed out every real research call, and a timed-out call can never earn the "research" tier.

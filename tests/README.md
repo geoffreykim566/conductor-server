@@ -1,7 +1,7 @@
 # tests/
 
-pytest unit tests. Deterministic: the decider is mocked, nothing hits the OpenAI,
-Anthropic or web-search APIs, and no test needs the database.
+pytest unit tests. Deterministic: the decider is mocked, nothing hits the OpenAI
+or web-search APIs, and no test needs the database.
 
 ## Layout
 
@@ -12,6 +12,7 @@ Anthropic or web-search APIs, and no test needs the database.
 | `core/` | Budget breaker, rate-limit keying, ID signing (`app.core`) |
 | `pipeline/` | One turn end to end through `pipeline.respond()`, plus its helpers, one concern per file |
 | `tools/` | Tool executors called directly (`app.tools`): action args, dropdown routes |
+| `research/` | `web_research` against a mocked Responses endpoint: sources, caps, spend, failures |
 | `evals/` | The battery grader (`evals.battery.grader`) on hand-built traces |
 
 ## Running
