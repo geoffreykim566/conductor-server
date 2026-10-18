@@ -13,18 +13,11 @@ DATABASE_URL = os.environ.get(
     "DATABASE_URL", "postgresql://conductor:conductor@localhost:5432/conductor"
 )
 
-# Which decider runs: "sol" (GPT-6.1 Sol on OpenAI, no KB) or "sonnet" (Sonnet 5.5 with the
-# KB in its prompt). An env var so rolling back is a Railway variable, not a deploy.
-DECIDER = os.environ.get("DECIDER", "sol")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+# The decider: GPT-6.1 Sol on OpenAI's Responses API, no KB (app/pipeline/README.md).
 SOL_MODEL = "gpt-6.1-sol"
 # Responses counts reasoning in output tokens; 3072 left too little room.
 SOL_MAX_OUTPUT_TOKENS = 8192
-# The Sonnet decider. Sonnet 5.5 rejects forced tool_choice; see pipeline/settings.py.
-MODEL = "claude-sonnet-5-5"
-MAX_TOKENS = 3072
-# The writer only phrases already-decided facts, so it runs on a cheaper model.
-WRITER_MODEL = "claude-haiku-4-5-20251001"
 # web_research's nested call (Sonnet 5 timed out at 150s on half the battery's calls).
 RESEARCH_MODEL = "claude-sonnet-5-5"
 # 90s timed out every real research call.
@@ -38,8 +31,3 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 # Cap on round-tripped history (api/history.py trims to this).
 MAX_HISTORY_MESSAGES = int(os.environ.get("MAX_HISTORY_MESSAGES", "60"))
-
-
-def decider_model() -> str:
-    """The model that decides this server's turns, for logging."""
-    return SOL_MODEL if DECIDER == "sol" else MODEL

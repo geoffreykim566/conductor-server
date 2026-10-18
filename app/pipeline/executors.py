@@ -1,6 +1,6 @@
 """Tool name -> executor, and the status line shown while a tool runs. Tests swap
 entries with patch.dict(executors.EXECUTORS, ...) and patch `executors.research`."""
-from app import kb, research, tools
+from app import research, tools
 
 
 async def _ack_clarifying_question() -> dict:
@@ -16,7 +16,6 @@ async def _now(result: dict) -> dict:
 EXECUTORS = {
     "open_plugin": lambda inp, fixture: _now(tools.queue_open_plugin(inp)),
     "set_param": lambda inp, fixture: _now(tools.queue_set_param(inp)),
-    "cite_kb": lambda inp, fixture: _now(kb.cite(inp.get("entries") or [])),
     "open_setting": lambda inp, fixture: _now(tools.queue_open_setting(inp, fixture)),
     "ask_clarifying_question": lambda inp, fixture: _ack_clarifying_question(),
     "web_research": lambda inp, fixture: research.web_research(inp["query"]),

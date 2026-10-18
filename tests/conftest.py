@@ -1,6 +1,5 @@
-"""Shared fakes: scripted model responses, KB/route helpers, and the `run` fixture
-that drives one pipeline turn with the model client and research mocked (cite_kb
-runs for real against seed/problems.json).
+"""Shared fakes: scripted decider responses, route helpers, and the `run` fixture
+that drives one pipeline turn with the decider and research mocked.
 
 Test modules import the builders with `from conftest import ...` (tests/ is on
 sys.path under pytest's default import mode; keep this the only conftest.py)."""
@@ -12,7 +11,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app import pipeline, tools
-from app.core import config
 from app.pipeline import executors, model_io, settings
 
 # --- model response builders -------------------------------------------------
@@ -32,7 +30,7 @@ def text_block(text: str) -> SimpleNamespace:
 
 
 def resp(*blocks) -> SimpleNamespace:
-    """One messages.create response holding `blocks`."""
+    """One decider response holding `blocks` (the shape openai_io returns)."""
     return SimpleNamespace(content=list(blocks), usage=usage())
 
 
@@ -42,11 +40,6 @@ def open_plugin(plugin: str, id_: str, **extra) -> SimpleNamespace:
 
 def set_param(plugin: str, param: str, value: str, id_: str) -> SimpleNamespace:
     return tool_use("set_param", {"plugin": plugin, "param": param, "value": value}, id_)
-
-
-def cite_kb(entries: list[str], id_: str) -> SimpleNamespace:
-    """A cite_kb call; the real executor (app.kb.cite) resolves it against seed/."""
-    return tool_use("cite_kb", {"entries": entries}, id_)
 
 
 # --- routes (real seed/routes.json, no DB) -----------------------------------
@@ -71,18 +64,10 @@ def queue_setting(name: str, value: str | None = None, said: str = "", offered: 
 # --- fixtures ----------------------------------------------------------------
 
 
-@pytest.fixture(autouse=True)
-def sonnet_decider():
-    """The scripted fakes are Anthropic-shaped, so tests run the Sonnet decider path;
-    Sol tests opt in with patch.object(config, "DECIDER", "sol")."""
-    with patch.object(config, "DECIDER", "sonnet"):
-        yield
-
-
 class FakeModel:
-    """Stands in for messages.create. Decider calls (they pass tools=) take the
-    next scripted response, the last one repeating; the writer call (no tools=)
-    gets a plain "writer text" reply and doesn't consume the script."""
+    """Stands in for model_io.call_model. Each call takes the next scripted response,
+    the last one repeating, and records its arguments as a dict (system, tools,
+    messages, tool_choice)."""
 
     def __init__(self) -> None:
         self.responses: list = []
@@ -93,18 +78,17 @@ class FakeModel:
         self.responses, self.decider_calls = list(responses), []
         return self.decider_calls
 
-    async def create(self, **kw):
-        if "tools" not in kw:
-            return resp(text_block("writer text"))
-        self.decider_calls.append(kw)
+    async def call(self, system, tools_param, msgs, tool_choice=None):
+        self.decider_calls.append({"system": system, "tools": tools_param, "messages": msgs,
+                                   "tool_choice": tool_choice})
         return self.responses[min(len(self.decider_calls) - 1, len(self.responses) - 1)]
 
 
 @pytest.fixture
 def model():
-    """Patches the Anthropic client for the test; script it via model.script()."""
+    """Patches the decider call for the test; script it via model.script()."""
     fake = FakeModel()
-    with patch.object(model_io._client.messages, "create", new=AsyncMock(side_effect=fake.create)):
+    with patch.object(model_io, "call_model", new=AsyncMock(side_effect=fake.call)):
         yield fake
 
 

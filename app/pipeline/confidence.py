@@ -1,28 +1,7 @@
-"""The turn's confidence tier (strong / moderate / research / generic), computed in
+"""The turn's confidence tier (strong / research / generic), computed in
 code from the trace, and the sources a research call cited. The tier no longer
 reaches the client (badge disabled); the battery and logs still use it.
 Rules and history: README.md (Confidence tier)."""
-
-
-def _moderate_citation_exists(trace: list[dict]) -> bool:
-    """Some citation/lookup hit at least moderate (citations are always "strong";
-    the bands are from the vector-lookup era). startswith: only "strong" is bare."""
-    return any(
-        c["tool"] == "cite_kb"
-        and str(c["output"].get("match_confidence", "")).startswith(("strong", "moderate"))
-        for c in trace
-    )
-
-
-def _strong_citation_exists(trace: list[dict]) -> bool:
-    """Some citation hit strong AND surfaced a solution with an action. A strong
-    diagnosis whose solutions carry no fix is no grounding for a fix."""
-    return any(
-        c["tool"] == "cite_kb"
-        and c["output"].get("match_confidence") == "strong"
-        and any(s.get("action") for s in c["output"].get("solutions") or [])
-        for c in trace
-    )
 
 
 def _successful_research_exists(trace: list[dict]) -> bool:
@@ -39,19 +18,15 @@ def confidence_tier(
     is_clarifying_question: bool = False,
 ) -> str:
     """A clarifying question claims nothing -> generic. A card -> strong. Successful
-    research -> research. No tool calls -> generic. Then strong / moderate / generic
-    from the citations."""
+    research -> research. Anything else -> generic (the moderate tier came from KB
+    citations, gone with the KB)."""
     if is_clarifying_question:
         return "generic"
     if walkthrough_steps is not None:
         return "strong"
     if _successful_research_exists(trace):
         return "research"
-    if not trace:
-        return "generic"
-    if _strong_citation_exists(trace):
-        return "strong"
-    return "moderate" if _moderate_citation_exists(trace) else "generic"
+    return "generic"
 
 
 def collect_sources(trace: list[dict]) -> list[dict]:

@@ -1,4 +1,4 @@
-"""DECIDER=sol: the Responses translation both ways, the Sol-only args, retries, and a full turn."""
+"""The Sol decider: the Responses translation both ways, the Sol-only args, retries, and a full turn."""
 from __future__ import annotations
 
 import json
@@ -8,8 +8,9 @@ import httpx
 import pytest
 
 from app.core import config
-from app.pipeline import openai_io
-from app.prompts import SOL_SYSTEM_PROMPT
+from app import pipeline
+from app.pipeline import openai_io, settings
+from app.prompts import SYSTEM_PROMPT
 
 
 def fc(name: str, args: dict, call_id: str) -> dict:
@@ -32,9 +33,9 @@ def http(status: int, body) -> httpx.Response:
 
 @pytest.fixture
 def sol():
-    """DECIDER=sol with the Responses endpoint mocked; script it with .side_effect = [httpx.Response, ...]."""
+    """The Responses endpoint mocked; script it with .side_effect = [httpx.Response, ...]."""
     post = AsyncMock()
-    with patch.object(config, "DECIDER", "sol"), patch.object(config, "OPENAI_API_KEY", "test"), \
+    with patch.object(config, "OPENAI_API_KEY", "test"), \
             patch.object(openai_io._client, "post", new=post), patch.object(openai_io.asyncio, "sleep", new=AsyncMock()):
         yield post
 
@@ -106,7 +107,7 @@ async def test_final_call_sends_tools_with_choice_none(sol) -> None:
     assert body["tool_choice"] == "none" and {t["name"] for t in body["tools"]} >= {"open_plugin"}, body
 
 
-async def test_sol_turn_remaining_actions_and_replay(sol, run) -> None:
+async def test_sol_turn_remaining_actions_and_replay(sol) -> None:
     """A full Sol turn: no KB in the prompt or tools, remaining_actions keeps the turn open for the
     second action, its reasoning and plan are replayed, and the answer arg becomes the decider text."""
     rs = {"type": "reasoning", "id": "rs_1", "encrypted_content": "enc", "summary": []}
@@ -116,10 +117,11 @@ async def test_sol_turn_remaining_actions_and_replay(sol, run) -> None:
         http(200, rj(fc("set_param", {"plugin": "Compressor", "param": "Threshold", "value": "-18", "answer": "",
                                       "remaining_actions": []}, "c2"))),
     ]
-    result, _ = await run([], messages=[{"role": "user", "content": "add a compressor with threshold -18"}], early_exit=True)
+    with patch.object(settings, "EARLY_EXIT_ON_ACTION", True):
+        result = await pipeline.respond([{"role": "user", "content": "add a compressor with threshold -18"}])
     assert sol.call_count == 2, sol.call_count
     first, second = (c.kwargs["json"] for c in sol.call_args_list)
-    assert first["instructions"] == SOL_SYSTEM_PROMPT
+    assert first["instructions"] == SYSTEM_PROMPT
     assert "cite_kb" not in {t["name"] for t in first["tools"]}
     assert rs in second["input"], second["input"]
     replayed = next(i for i in second["input"] if i.get("call_id") == "c1" and i["type"] == "function_call")

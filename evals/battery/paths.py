@@ -20,10 +20,10 @@ def _norm_path(text: str) -> str:
 def _route_chains() -> list[str]:
     """Every verified path the model is shown: route menu chains, display-only
     alternatives, and reference text, each split into its " > " chains."""
-    from app.kb import data, paths
+    from app.tools import routes
     chains = []
-    for name, route in data.ALL_ROUTES.items():
-        for piece in re.split(r", then |\(also |\(|\)|: ", paths.route_path_text(name)):
+    for name, route in routes.ALL_ROUTES.items():
+        for piece in re.split(r", then |\(also |\(|\)|: ", routes.route_path_text(name)):
             if " > " in piece:
                 chains.append(_norm_path(piece))
         chains.append(_norm_path(route.get("desc") or ""))

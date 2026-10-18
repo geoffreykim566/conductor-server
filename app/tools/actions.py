@@ -5,7 +5,6 @@ import re
 from app.tools.choices import pane_only_ask, resolve_choice
 from app.tools.route_steps import path_to_walkthrough_steps
 from app.tools.routes import ROUTES
-from app.tools.schemas import ACTION_TOOLS
 from app.tools.turn_text import TURN_OFFERED_TEXT, TURN_USER_TEXT
 
 
@@ -142,21 +141,4 @@ def queue_open_setting(inp: dict, ax_fixture: dict | None = None) -> dict:
         out["note"] = "opens the pane only -- no value is chosen; " + pane_only_ask(choice)
         if len(choice.get("options") or []) > 1:
             out["ask_options"] = list(choice["options"])  # the reply must name them (respond._options_unnamed)
-    return out
-
-
-def action_calls(action) -> list[tuple[str, dict]]:
-    """A solution's stored action ({"open_setting": "x"} / {"open_plugin": {...}}
-    / a list of those) as (tool name, tool input) pairs -- the same shape a
-    model's own call would have, so an auto-attached action and a direct call
-    are indistinguishable downstream."""
-    out = []
-    for call in (action if isinstance(action, list) else [action] if action else []):
-        for tool, arg in call.items():
-            if tool == "open_setting":
-                # a route name, or {"name", "value"} to choose a dropdown value,
-                # checked like a model's call
-                out.append((tool, dict(arg) if isinstance(arg, dict) else {"name": arg}))
-            elif tool in ACTION_TOOLS and isinstance(arg, dict):
-                out.append((tool, dict(arg)))
     return out

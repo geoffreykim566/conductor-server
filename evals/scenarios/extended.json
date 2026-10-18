@@ -27,7 +27,6 @@
     "name": "slowed_context_pitch",
     "note": "distinguisher present (pitch AND speed off) — should tip firmly toward sample rate mismatch",
     "expect": {
-      "match": "problem",
       "walkthrough_destination": "sample rate"
     },
     "turns": [
@@ -52,7 +51,6 @@
     "name": "thin_hollow_boundary",
     "note": "verbatim plan.md #85 case — genuinely 3-way ambiguous",
     "expect": {
-      "match": "problem",
       "walkthrough_destination": null
     },
     "turns": [
@@ -64,9 +62,6 @@
   {
     "name": "thin_hollow_context",
     "note": "real distinguisher present — should narrow to mix collapses in mono without asking",
-    "expect": {
-      "match": "problem"
-    },
     "turns": [
       {
         "text": "my song sounds thin and hollow on my phone speaker, but it sounds full and fine on my studio monitors"
@@ -77,13 +72,8 @@
     "name": "no_sound_direct",
     "note": "3-way ambiguous new bucket, no evidence given — committing to the weight-60 default or asking are both acceptable; leading with the weight-25 candidate with zero evidence (found live 2026-08-04) is not, and isn't in the accepted set below",
     "expect": {
-      "match": "problem",
       "walkthrough_destination": [
         "audio settings",
-        null
-      ],
-      "walkthrough_solution": [
-        "no sound output",
         null
       ]
     },
@@ -97,9 +87,7 @@
     "name": "no_sound_context_other_apps",
     "note": "distinguisher: other apps also silent -> should point to Core Audio specifically. Same shared-destination collision as no_sound_direct (found via Fable review, 2026-08-06): 'Core Audio goes silent mid-session' and 'no sound output' both extends_to 'audio settings', so walkthrough_destination alone can't tell a correctly-followed distinguisher from an ignored one -- walkthrough_solution catches that.",
     "expect": {
-      "match": "problem",
-      "walkthrough_destination": "audio settings",
-      "walkthrough_solution": "Core Audio goes silent mid-session"
+      "walkthrough_destination": "audio settings"
     },
     "turns": [
       {
@@ -110,9 +98,6 @@
   {
     "name": "crackling_indirect",
     "note": "cross-bucket bucket: both solutions shared with other problems",
-    "expect": {
-      "match": "problem"
-    },
     "turns": [
       {
         "text": "my audio crackles and pops during playback"
@@ -123,7 +108,6 @@
     "name": "crackling_context_consistent_small_project",
     "note": "distinguisher pointing the OTHER way, to sample rate mismatch, not CPU overload — prior Fable review flagged this scenario as less decisive/hedging more than it used to",
     "expect": {
-      "match": "problem",
       "walkthrough_destination": "sample rate"
     },
     "turns": [
@@ -135,9 +119,6 @@
   {
     "name": "recording_silent",
     "note": "2-solution bucket",
-    "expect": {
-      "match": "problem"
-    },
     "turns": [
       {
         "text": "my mic isnt picking up any sound when i try to record"
@@ -148,7 +129,6 @@
     "name": "recording_silent_context",
     "note": "distinguisher: meters dont move at all + tried a different mic -> points to permissions not the interface. 'microphone permissions' has no path by design (v1's original data leaves it path-less -- it's a macOS System Settings location, not a Logic Pro one), so no walkthrough is ever expected even when the diagnosis is correct 2026-09-28: an Audio settings card (checking the input device, the second candidate) is accepted alongside the permission fix (user call).",
     "expect": {
-      "match": "problem",
       "walkthrough_destination": [
         null,
         "audio settings"
@@ -164,7 +144,6 @@
     "name": "system_overload_generic",
     "note": "2-solution bucket, one solution shared with the crackling bucket",
     "expect": {
-      "match": "problem",
       "walkthrough_destination": "buffer size"
     },
     "turns": [
@@ -177,7 +156,6 @@
     "name": "system_overload_apple_silicon_context",
     "note": "distinguisher pointing to the Apple-Silicon-specific cause",
     "expect": {
-      "match": "problem",
       "walkthrough_destination": "processing threads"
     },
     "turns": [
@@ -190,7 +168,6 @@
     "name": "adversarial_gap_monitor_button",
     "note": "was a genuine gap (2026-08-04), now has real content — should resolve for real, not decline or hallucinate",
     "expect": {
-      "match": "single",
       "walkthrough_destination": "input monitoring toggle"
     },
     "turns": [
@@ -203,7 +180,6 @@
     "name": "monitor_button_already_off",
     "note": "pushed AX state says Input Monitoring is off — should walk through enabling it via Option+T",
     "expect": {
-      "match": "single",
       "walkthrough_destination": "input monitoring toggle"
     },
     "turns": [
@@ -219,7 +195,6 @@
     "name": "ax_contradicts_user_claim",
     "note": "mirror image of ax_override_critical_test — every existing AX-fixture scenario pushes state that AGREES with what the user says (found via Fable review, 2026-08-06: never actually tested a real disagreement). Here the user is WRONG: they claim the project and file both read 44.1kHz, but the pushed AX data shows the project is actually at 48kHz -- a real mismatch the user hasn't noticed. Correct behavior: trust the real data over the user's mistaken claim and attach sample rate mismatch, not defer to Smart Tempo the way the agreeing-evidence version correctly does. This is the actual test of whether AX 'outranks stated claims... when they conflict' (prompt.py's own words) rather than just a case where trusting either one gives the same answer.",
     "expect": {
-      "match": "problem",
       "walkthrough_destination": "sample rate"
     },
     "turns": [
@@ -334,9 +309,6 @@
   {
     "name": "multiturn_clarify_then_resolve_thin_hollow",
     "note": "same distinguisher as thin_hollow_context but delivered a turn late, after the genuinely 3-way-ambiguous opener — tests resolution once clarifying information actually arrives instead of being present from the first message.",
-    "expect": {
-      "match": "problem"
-    },
     "turns": [
       {
         "text": "my song sounds thin and hollow on my phone speaker"
@@ -399,8 +371,6 @@
     "name": "positive_distinguisher_underdog_smart_tempo",
     "note": "2026-08-11 hedge-battery addition — textual-distinguisher underdog pick: Smart Tempo (seed_weight 30) should beat sample rate mismatch (seed_weight 100) in the 'song sounds slowed' bucket via distinguisher text alone (affects one imported region, pitch stays correct), not AX evidence like ax_override_critical_test uses. Smart Tempo has no path, so a correct pick attaches nothing; a wrong pick attaches sample rate. Positive control for direct-evidence-over-seed_weight still working. 2026-09-21 (routes + auto-attach): Smart Tempo's settings are now approved routes, so acting on the right candidate can queue one; the thing that must not happen is the sample-rate card. 2026-09-22: 'follow tempo' (Region Inspector) added — that is the per-region Smart Tempo fix this scenario describes, and the action its solution now maps to.",
     "expect": {
-      "match": "problem",
-      "resolved_problem": "song sounds slowed",
       "walkthrough_destination": [
         null,
         "follow tempo",
@@ -467,7 +437,6 @@
     "name": "hedge_freeze_shortcut_negative_claim",
     "note": "2026-08-11 hedge-battery addition — at the time, 'freeze' appeared only in CPU overload's excluded fix text, no destination entry, no shortcut anywhere in the KB. SUPERSEDED 2026-08-18: the Phase 1 port added a real 'freeze track' destination (Option+T, click Freeze) -- live-verified 2026-08-17 battery run resolves it correctly. Re-expressed as a positive control instead of a true negative.",
     "expect": {
-      "match": "single",
       "walkthrough_destination": "freeze track"
     },
     "turns": [
@@ -492,7 +461,6 @@
     "name": "autotune_one_note_flex_pitch",
     "note": "2026-09-28 sibling of hedge_autotune_rewrite_example: fixing one note by hand is Flex Pitch, not the Pitch Correction plugin.",
     "expect": {
-      "match": "problem",
       "walkthrough_destination": "flex pitch",
       "no_action_calls": true
     },

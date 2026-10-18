@@ -6,7 +6,6 @@ import logging
 from app import tools
 from app.pipeline import model_io, notes, settings
 from app.pipeline.backfill import backfill_walkthrough
-from app.pipeline.cards import needs_pick
 from app.pipeline.confidence import collect_sources
 from app.pipeline.context import TurnContext
 from app.pipeline.dispatch import handle_tool_use
@@ -16,28 +15,27 @@ from app.pipeline.model_io import OnChunk, OnStatus
 from app.pipeline.result import Result
 from app.pipeline.transcript import last_user_text_index, pending_tool_uses
 from app.pipeline.turn_state import TurnState, restore_turn_state
-from app.pipeline.writer import finalize_answer
+from app.pipeline.reply import finalize_reply
 
 log = logging.getLogger(__name__)
 
 
 async def respond(messages: list[dict], **kwargs) -> Result:
     """run_turn, plus whether the card may auto-run, decided once from the user's
-    own message. Only a direct command with no citation behind it auto-runs; routes
-    marked wait_for_run always wait (README: Auto-run)."""
+    own message. Only a direct command auto-runs; a re-shown (backfilled) card and
+    routes marked wait_for_run always wait (README: Auto-run)."""
     result = await run_turn(messages, **kwargs)
-    inferred = result.card_from_lookup or any(
-        c["tool"] == "cite_kb" and (c.get("output") or {}).get("cited") for c in result.trace)
+    reshown = any((c.get("output") or {}).get("backfilled") for c in result.trace)
     waits = any(c["tool"] == "open_setting" and tools.ROUTES.get((c.get("input") or {}).get("name"), {}).get("wait_for_run")
                 for c in result.trace)
-    result.auto_run = (not inferred) and not waits and auto_run_ok(messages, result.walkthrough_steps)
+    result.auto_run = not reshown and not waits and auto_run_ok(messages, result.walkthrough_steps)
     return result
 
 
 async def _call(ctx: TurnContext, msgs: list[dict], usage: list[dict],
                 nudge: str | None = None, tool_choice: dict | None = None):
     system = ctx.system + ([{"type": "text", "text": "\n\n" + nudge}] if nudge else [])
-    resp = await model_io.call_model(system, ctx.tools, ctx.for_call(msgs), None, tool_choice)
+    resp = await model_io.call_model(system, ctx.tools, ctx.for_call(msgs), tool_choice)
     usage.append(model_io.usage_dict(resp.usage))
     tool_uses = [b for b in resp.content if b.type == "tool_use"]
     return resp, tool_uses, "".join(b.text for b in resp.content if b.type == "text")
@@ -45,10 +43,8 @@ async def _call(ctx: TurnContext, msgs: list[dict], usage: list[dict],
 
 async def _decide(i: int, msgs: list[dict], state: TurnState, ctx: TurnContext,
                   force_first: bool, on_status: OnStatus | None, usage: list[dict]):
-    """One decider call (non-streaming; only the writer streams), plus at most two
-    re-asks: a go-ahead's first call that made no tool call (TOOL_NUDGE), and a
-    reply about to end on prose while a cited bucket's candidates map to actions
-    (pick-or-ask). Returns (response, tool_uses, this iteration's text)."""
+    """One decider call, plus at most one re-ask: a go-ahead's first call that made no
+    tool call (TOOL_NUDGE). Returns (response, tool_uses, this iteration's text)."""
     if on_status:
         await on_status("Thinking…")
     tool_choice = settings.FORCED_TOOL_CHOICE if i == 0 and force_first else None
@@ -56,24 +52,13 @@ async def _decide(i: int, msgs: list[dict], state: TurnState, ctx: TurnContext,
     if (i == 0 and force_first and not tool_uses and tool_choice is None
             and settings.RETRY_NO_TOOL_FIRST_CALL):
         resp, tool_uses, iter_text = await _call(ctx, msgs, usage, nudge=notes.TOOL_NUDGE)
-    if not tool_uses and not state.pick_forced and needs_pick(state.trace, state.card_steps):
-        state.pick_forced = True
-        resp, tool_uses, iter_text = await _call(
-            ctx, msgs, usage, nudge=notes.PICK_NUDGE, tool_choice=settings.FORCED_TOOL_CHOICE)
     if iter_text:
         state.add_text(iter_text, follow_up=not tool_uses)
     return resp, tool_uses, iter_text
 
 
 def _all_accepted(tool_results: list[dict]) -> bool:
-    for tr in tool_results:
-        out = json.loads(tr["content"])
-        if "cited" in out:
-            if "error" in out or not all(o["output"].get("attached") for o in out.get("on_card") or []):
-                return False
-        elif not out.get("attached"):
-            return False
-    return True
+    return all(json.loads(tr["content"]).get("attached") for tr in tool_results)
 
 
 def _options_unnamed(tool_results: list[dict], iter_text: str) -> bool:
@@ -89,17 +74,12 @@ def _options_unnamed(tool_results: list[dict], iter_text: str) -> bool:
 
 
 def _can_exit_early(tool_uses: list, tool_results: list[dict], iter_text: str, state: TurnState) -> bool:
-    """Nothing left to decide: every call this iteration was an accepted action or
-    citation, a citing iteration already wrote its explanation, and no pick is
-    pending, and the decider (Sol) didn't say another action follows. Skips the
-    prose-only follow-up call (~2.5 s). Any refusal or error keeps looping so the
-    decider can react (README: Early exit)."""
-    citing = any(tu.name == "cite_kb" for tu in tool_uses)
+    """Nothing left to decide: every call this iteration was an accepted action, and Sol
+    didn't say another action follows. Skips the prose-only follow-up call (~2.5 s). Any
+    refusal or error keeps looping so the decider can react (README: Early exit)."""
     return (settings.EARLY_EXIT_ON_ACTION and bool(tool_uses)
-            and all(tu.name in tools.ACTION_TOOLS or tu.name == "cite_kb" for tu in tool_uses)
+            and all(tu.name in tools.ACTION_TOOLS for tu in tool_uses)
             and _all_accepted(tool_results)
-            and bool(iter_text.strip() or not citing)
-            and not needs_pick(state.trace, state.card_steps)
             and not state.more_actions
             and not _options_unnamed(tool_results, iter_text))
 
@@ -140,14 +120,13 @@ async def run_turn(
     force_first = force_first_call(messages)
 
     async def finish(is_clarifying_question: bool = False, question: str = "") -> Result:
-        text, tier = await finalize_answer(
-            state.trace, state.steps, "\n\n".join(state.text_parts), messages, on_chunk, usage,
-            is_clarifying_question=is_clarifying_question, question=question, live_state=ctx.live_state,
-            had_screenshots=ctx.had_screenshots, has_actions=bool(state.card_steps),
+        text, tier = await finalize_reply(
+            state.trace, state.steps, "\n\n".join(state.text_parts), messages, on_chunk,
+            is_clarifying_question=is_clarifying_question, question=question,
         )
         return Result(text=text, walkthrough_steps=state.steps,
                       trace=state.trace, messages=msgs, usage=usage, confidence_tier=tier,
-                      sources=collect_sources(state.trace), card_from_lookup=bool(state.queued_by_lookup))
+                      sources=collect_sources(state.trace))
 
     for i in range(settings.MAX_ITERATIONS):
         if i == 0 and parked:
@@ -162,9 +141,8 @@ async def run_turn(
             if not state.trace:
                 backfilled = backfill_walkthrough(messages, "\n\n".join(state.text_parts))
                 if backfilled:
+                    # Its trace entry is marked backfilled, so the re-shown card waits for Run.
                     state.card_steps = list(backfilled["steps"])
-                    # A re-shown card waits for Run like any lookup-queued card.
-                    state.queued_by_lookup = {"backfill": (0, len(state.card_steps))}
                     state.trace.append({
                         "tool": "open_setting",
                         "input": {"name": backfilled["destination"]},
@@ -216,7 +194,6 @@ async def run_turn(
         ctx.system + [{"type": "text", "text": notes.FINAL_ANSWER_NUDGE}],
         None,
         ctx.for_call(msgs),
-        None,
     )
     usage.append(model_io.usage_dict(final.usage))
     final_text = "".join(b.text for b in final.content if b.type == "text")

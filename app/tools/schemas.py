@@ -1,35 +1,22 @@
-"""The tool definitions sent to the decider. What each tool is for, and why the action
-tools are typed tools rather than KB rows: README.md."""
-from app import kb
-from app.tools.routes import ROUTES, route_line
+"""The tool definitions sent to the decider (Sol). What each tool is for, why the action
+tools are typed tools, and why they carry `answer` / `remaining_actions`: README.md."""
+from app.tools.routes import REFERENCES, ROUTES, route_line, route_path_text
 
-CITE_KB_SCHEMA = {
-    "name": "cite_kb",
-    "description": (
-        "Record which knowledge-base entries (the problems and solutions in your instructions) "
-        "your answer relies on. Call it in the same response as your answer and any action "
-        "call, whenever you diagnose a Logic Pro problem or state a fix, setting, menu path or "
-        "shortcut that comes from the KB -- never state one from memory. Cite the problem bucket "
-        "you diagnosed and the one solution you recommend; a cited solution that has an action "
-        "is queued on the reply's card if you don't call its action yourself. Don't cite a "
-        "candidate you only mention as the next thing to try. Pass an empty list when nothing in "
-        "the KB covers the question. Not needed for a plain command to open, add or set "
-        "something."
-    ),
-    "strict": True,
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "entries": {
-                "type": "array",
-                "items": {"type": "string", "enum": kb.ENTRY_NAMES},
-                "description": "Exact KB entry names (problem or solution headings), most important first.",
-            }
-        },
-        "required": ["entries"],
-        "additionalProperties": False,
-    },
-}
+# Sol writes no text beside a tool call, so its reply rides on the action call (the
+# adapter moves it into a text block); without it each card turn cost a second call.
+ANSWER_PROP = {"type": "string", "description": (
+    "Your written reply to the user, shown beside this card: what's going on and the fix, as you'd "
+    "write it in your answer (for a plain command, one short line). Fill it on the first action call "
+    "of a response; leave it empty on the others.")}
+# Sol queues one action per response even when a request needs several. A yes/no "more
+# coming" flag still lost the last one (the low cut in "compressor and eq with low cut", 2/3);
+# listing what's left makes it plan, and the turn continues until the list is empty.
+REMAINING_ACTIONS_PROP = {"type": "array", "items": {"type": "string"}, "description": (
+    "Every other action the user's request still needs after this one, each as a short phrase "
+    "(\"set Channel EQ Low Cut Frequency to 80\"), in the order you'll queue them. Include each "
+    "one your answer promises that isn't queued yet. [] if this call completes the request.")}
+# Stripped before an action runs (pipeline/openai_io.py); never part of the call's own args.
+SOL_ONLY_ARGS = ("answer", "remaining_actions")
 
 
 # No side effect: it makes "this turn makes no claim" a fact in the trace rather
@@ -40,12 +27,11 @@ ASK_CLARIFYING_QUESTION_SCHEMA = {
         "Call this when your entire response for this turn is a clarifying question "
         "and nothing else -- no diagnosis, guidance, or claim alongside it. Marks the "
         "turn as making no claim, so it won't be hedged as an unconfirmed answer. Only "
-        "for the genuine-toss-up case this prompt already describes (a KB problem with "
-        "several candidate causes and no distinguishing evidence yet). Never call this if you're also offering "
+        "for the genuine-toss-up case this prompt already describes (several candidate causes "
+        "and no distinguishing evidence yet). Never call this if you're also offering "
         "any guidance, even tentative guidance, in the same response -- that response "
         "should stand as a real (possibly hedged) answer, not a claim-free question. "
-        "Never call this alongside an action tool. If the question is about a KB problem, cite "
-        "it with cite_kb in the same response."
+        "Never call this alongside an action tool."
     ),
     "input_schema": {
         "type": "object",
@@ -62,17 +48,15 @@ ASK_CLARIFYING_QUESTION_SCHEMA = {
 }
 
 # Executor: app/research. The description is the only trigger; nothing forces a call
-# (research on every KB miss was rejected as the costlier, more eager option).
+# (research on every miss was rejected as the costlier, more eager option).
 WEB_RESEARCH_SCHEMA = {
     "name": "web_research",
     "description": (
-        "Search the web for information outside this KB's coverage -- specific artist/producer "
-        "techniques, gear, current Logic Pro features/changes, or anything else the knowledge base "
-        "doesn't cover. "
-        "Call this instead of answering from pretrained knowledge when a question asks for "
-        "something you'd otherwise have to guess at. Don't call it for ordinary troubleshooting or "
-        "navigation questions the knowledge base already covers -- this is for genuinely out-of-KB "
-        "information, not a first resort."
+        "Search the web for information you can't answer reliably from your own Logic Pro "
+        "knowledge -- specific artist/producer techniques, gear, current Logic Pro features/changes. "
+        "Call it only when you have no answer of your own; never to confirm something you already "
+        "believe. Don't call it for ordinary troubleshooting or navigation questions you can "
+        "answer -- this is for information you genuinely don't have, not a first resort."
     ),
     "input_schema": {
         "type": "object",
@@ -95,9 +79,8 @@ OPEN_PLUGIN_SCHEMA = {
         "Queue an action that loads an audio-effect plugin onto a track by name, or opens its "
         "window if that plugin is already on the track. It runs on the user's Mac after your "
         "reply, when they press Run -- it has NOT happened when you write your reply. Works for "
-        "any installed plugin, Apple or third-party, whether or not the KB mentions it. Use it "
-        "for a direct request to add / put / load / open a plugin; no KB entry is "
-        "needed first. Several action calls in one reply run in call order as one card."
+        "any installed plugin, Apple or third-party. Use it for a direct request to add / put / "
+        "load / open a plugin. Several action calls in one reply run in call order as one card."
     ),
     "strict": True,
     "input_schema": {
@@ -168,7 +151,7 @@ OPEN_SETTING_SCHEMA = {
         + "\n".join(route_line(name, route) for name, route in sorted(ROUTES.items()))
         + "\n\nVerified locations you may state but NOT pass to open_setting (no runnable steps; "
         "say where it is and let the user do it):\n"
-        + "\n".join(f"- {name}: {kb.route_path_text(name)}" for name in sorted(kb.REFERENCES))
+        + "\n".join(f"- {name}: {route_path_text(name)}" for name in sorted(REFERENCES))
     ),
     "strict": True,
     "input_schema": {
@@ -184,10 +167,13 @@ OPEN_SETTING_SCHEMA = {
         "required": ["name"],
         "additionalProperties": False,
     },
-    # Cache breakpoint for the whole tools array; must sit on the LAST schema.
-    "cache_control": {"type": "ephemeral"},
 }
 
-TOOLS = [CITE_KB_SCHEMA, ASK_CLARIFYING_QUESTION_SCHEMA, WEB_RESEARCH_SCHEMA,
-         OPEN_PLUGIN_SCHEMA, SET_PARAM_SCHEMA, OPEN_SETTING_SCHEMA]
 ACTION_TOOLS = {"open_plugin", "set_param", "open_setting"}
+for _t in (OPEN_PLUGIN_SCHEMA, SET_PARAM_SCHEMA, OPEN_SETTING_SCHEMA):
+    _s = _t["input_schema"]
+    _s["properties"] = {**_s["properties"], "answer": ANSWER_PROP, "remaining_actions": REMAINING_ACTIONS_PROP}
+    _s["required"] = [*_s["required"], *SOL_ONLY_ARGS]
+
+TOOLS = [ASK_CLARIFYING_QUESTION_SCHEMA, WEB_RESEARCH_SCHEMA,
+         OPEN_PLUGIN_SCHEMA, SET_PARAM_SCHEMA, OPEN_SETTING_SCHEMA]

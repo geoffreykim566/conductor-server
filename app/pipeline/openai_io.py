@@ -1,6 +1,6 @@
-"""The decider call when DECIDER=sol: GPT-6.1 Sol on OpenAI's Responses API. Translates the
-Anthropic-shaped request (system blocks, messages, tools) to Responses input items and the
-reply back into Anthropic-shaped blocks, so respond.py and the history format are unchanged.
+"""The decider call: GPT-6.1 Sol on OpenAI's Responses API. Translates the pipeline's
+block-shaped request (system blocks, messages, tools; the history format the client
+round-trips) to Responses input items, and the reply back into blocks.
 Why Responses, the Sol-only args and the stash: README.md (Sol decider)."""
 import asyncio
 import contextvars
@@ -14,7 +14,7 @@ import httpx
 from app.core import config
 from app.pipeline import settings
 from app.pipeline.transcript import last_user_text_index
-from app.tools.schemas_sol import SOL_ONLY_ARGS, SOL_TOOLS
+from app.tools.schemas import SOL_ONLY_ARGS, TOOLS
 
 log = logging.getLogger(__name__)
 
@@ -143,7 +143,7 @@ async def call_decider(system: list[dict], tools_param: list[dict] | None, msgs:
     """One decider call. tools_param=None is the tools-off final call: the tools still go
     (history may hold function calls) with tool_choice none."""
     if not config.OPENAI_API_KEY:
-        raise RuntimeError("DECIDER=sol needs OPENAI_API_KEY")
+        raise RuntimeError("the decider needs OPENAI_API_KEY")
     stash = _STASH.get()
     if stash is None:
         stash = {}
@@ -155,7 +155,7 @@ async def call_decider(system: list[dict], tools_param: list[dict] | None, msgs:
         del stash[k]
     instructions, items = _input(system, msgs, stash)
     body = {"model": config.SOL_MODEL, "instructions": instructions, "input": items,
-            "tools": _tools(tools_param if tools_param is not None else SOL_TOOLS),
+            "tools": _tools(tools_param if tools_param is not None else TOOLS),
             "tool_choice": "none" if tools_param is None else _tool_choice(tool_choice),
             "reasoning": {"effort": settings.DECIDER_EFFORT or "medium"},
             "max_output_tokens": config.SOL_MAX_OUTPUT_TOKENS,

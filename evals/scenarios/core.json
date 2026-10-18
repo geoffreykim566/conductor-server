@@ -3,7 +3,6 @@
     "name": "slowed_indirect",
     "note": "multi-solution problem, no distinguishing context yet",
     "expect": {
-      "match": "problem",
       "walkthrough_destination": "sample rate"
     },
     "turns": [
@@ -16,7 +15,6 @@
     "name": "muddy_ambiguous",
     "note": "no element named, 3 real candidates — expect a clarifying question",
     "expect": {
-      "match": "problem",
       "walkthrough_destination": null
     },
     "turns": [
@@ -29,7 +27,6 @@
     "name": "crackling_context_worse_with_tracks",
     "note": "distinguisher pointing to CPU overload, not sample rate",
     "expect": {
-      "match": "problem",
       "walkthrough_destination": "buffer size"
     },
     "turns": [
@@ -42,7 +39,6 @@
     "name": "latency_single_solution",
     "note": "deliberately single-candidate bucket — should NOT hedge or ask, just answer",
     "expect": {
-      "match": "problem",
       "walkthrough_destination": "low latency monitoring mode"
     },
     "turns": [
@@ -67,7 +63,6 @@
     "name": "monitor_button_already_on",
     "note": "pushed AX state says Input Monitoring is already visible — should say so and point at the track header, not walk through toggling it (which would turn it OFF). Was a known gap (2026-08-05, see v3-log.md) until the toggle_ax_key guard was built; now passes. CODE-GUARANTEED (flagged via Fable review, 2026-08-06): the toggle_ax_key gate in tools.py deterministically refuses the attach whenever the fixture key is truthy, so walkthrough_destination:null passes regardless of what the model does -- this is a regression test for that code path, not a test of model judgment. The 'should say so' prose behavior is real but ungraded.",
     "expect": {
-      "match": "single",
       "walkthrough_destination": null
     },
     "turns": [
@@ -96,7 +91,6 @@
     "name": "ax_override_critical_test",
     "note": "the critical thesis test — stated+AX evidence should demote sample-rate-mismatch (seed_weight 100) and lead with Smart Tempo instead. Smart Tempo has no path, so a correct override means NO walkthrough attaches (attaching one would mean it recommended the ruled-out sample-rate-mismatch instead) 2026-09-21 (routes + auto-attach): the value_ax_key gate is gone (it also blocked the correct fix in ax_contradicts_user_claim), so the live 44.1 kHz ruling sample rate out is now the model's call: the assertion is that the sample-rate card is NOT queued; another candidate's card is fine.",
     "expect": {
-      "match": "problem",
       "walkthrough_destination_absent": "sample rate"
     },
     "turns": [
@@ -129,10 +123,6 @@
   {
     "name": "multiturn_topic_pivot",
     "note": "turn 2 explicitly abandons the turn-1 topic for an unrelated one — tests that history doesn't anchor the model to the old diagnosis once the user has moved on. match alone can't catch anchoring (a drifted-back lookup also returns match=problem) -- resolved_problem checks it actually landed on the mic-not-picking-up bucket, not a stale slowed-down one (found via Fable review, 2026-08-06).",
-    "expect": {
-      "match": "problem",
-      "resolved_problem": "recording is silent / mic not picking up"
-    },
     "turns": [
       {
         "text": "why does my song sound slowed down"

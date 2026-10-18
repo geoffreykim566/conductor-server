@@ -1,86 +1,28 @@
-"""The one place the pipeline calls a model (the Sol decider through openai_io), plus converting its response
-blocks back into request-shaped dicts. Tests patch `model_io._client.messages`."""
-import logging
-import time
+"""The one place the pipeline calls the decider (Sol, through openai_io), plus converting
+response blocks back into request-shaped dicts. Tests patch `model_io.call_model`."""
 from typing import Awaitable, Callable
 
-from anthropic import AsyncAnthropic
-
-from app.core import config
-from app.core.config import CENTRAL_ANTHROPIC_KEY, MAX_TOKENS
-from app.pipeline import openai_io, settings
+from app.pipeline import openai_io
 
 OnChunk = Callable[[str], Awaitable[None]]
 OnStatus = Callable[[str], Awaitable[None]]
 
-log = logging.getLogger(__name__)
 
-_client = AsyncAnthropic(api_key=CENTRAL_ANTHROPIC_KEY)
-
-
-async def call_model(
-    system: list[dict],
-    tools_param: list[dict] | None,
-    msgs: list[dict],
-    on_chunk: OnChunk | None,
-    tool_choice: dict | None = None,
-    model: str | None = None,
-):
-    """One messages.create call, or the streamed equivalent when on_chunk is given
-    (only the writer streams). model=None means the decider: Sol via openai_io when
-    config.DECIDER is "sol", else config.MODEL, resolved at call time, plus
-    settings.DECIDER_EFFORT / DECIDER_THINKING. Logs per-call timing and cache
-    accounting as [model_call]."""
-    decider = model is None
-    if decider and config.DECIDER == "sol":
-        return await openai_io.call_decider(system, tools_param, msgs, tool_choice)
-    model = config.MODEL if decider else model
-    kwargs = dict(model=model, max_tokens=MAX_TOKENS, system=system, messages=msgs)
-    if decider and settings.DECIDER_EFFORT is not None:
-        kwargs["output_config"] = {"effort": settings.DECIDER_EFFORT}
-    if decider and settings.DECIDER_THINKING is not None:
-        kwargs["thinking"] = settings.DECIDER_THINKING
-    if tools_param is not None:
-        kwargs["tools"] = tools_param
-    if tool_choice is not None:
-        kwargs["tool_choice"] = tool_choice
-    t0 = time.monotonic()
-    if on_chunk is None:
-        resp = await _client.messages.create(**kwargs)
-    else:
-        async with _client.messages.stream(**kwargs) as stream:
-            async for text in stream.text_stream:
-                await on_chunk(text)
-            resp = await stream.get_final_message()
-    # getattr guards: mocked tests return bare SimpleNamespace usage.
-    u = getattr(resp, "usage", None)
-    log.warning(
-        "[model_call] %s %.1fs in=%s cache_read=%s cache_write=%s out=%s forced=%s",
-        model, time.monotonic() - t0,
-        getattr(u, "input_tokens", "?"),
-        getattr(u, "cache_read_input_tokens", 0) or 0,
-        getattr(u, "cache_creation_input_tokens", 0) or 0,
-        getattr(u, "output_tokens", "?"),
-        tool_choice is not None,
-    )
-    return resp
+async def call_model(system: list[dict], tools_param: list[dict] | None, msgs: list[dict],
+                     tool_choice: dict | None = None):
+    """One decider call. tools_param=None is the tools-off final call."""
+    return await openai_io.call_decider(system, tools_param, msgs, tool_choice)
 
 
 def serialize_content(content: list) -> list[dict]:
-    """SDK response blocks -> plain request-shape dicts. Response objects carry
-    fields the request schema rejects, and Result.messages is replayed as the next
-    turn's history. Thinking blocks are dropped: the history validator rejects them
-    and this non-interleaved loop doesn't need them (README: History round-trip)."""
+    """Response blocks -> plain request-shape dicts: Result.messages is replayed as the
+    next turn's history (README: History round-trip)."""
     out = []
     for b in content:
         if b.type == "text":
             out.append({"type": "text", "text": b.text})
         elif b.type == "tool_use":
             out.append({"type": "tool_use", "id": b.id, "name": b.name, "input": b.input})
-        elif b.type == "thinking":
-            continue
-        else:
-            out.append(b.model_dump())
     return out
 
 

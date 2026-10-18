@@ -1,7 +1,6 @@
 """Grading a scenario's trace against its written-in-advance `expect` block. Structural
 checks only (which tool, what arguments, what came back) plus substring checks on the
 reply text; prose quality still needs a human. Every expect key: README.md."""
-import json
 import re
 
 # Tools whose calls queue an action the client runs. Local, not imported from
@@ -60,45 +59,20 @@ def ordered_subsequence(expected: list[dict], got: list[dict]) -> bool:
 
 def actual_outcome(trace: list[dict], response_text: str = "", confidence_tier: str = "", sources: list | None = None,
                    auto_run: bool | None = None) -> dict:
-    # cite_kb keeps lookup_concept's result shape, so lookup fields grade citations the same way.
-    lookup_calls = [c for c in trace if c["tool"] in ("lookup_concept", "cite_kb")]
     research_calls = [c for c in trace if c["tool"] == "web_research"]
 
-    # match / resolved_problem grade the FIRST lookup: a later lookup by exact
-    # name is a legitimate second step, not a retraction.
-    match = lookup_calls[0]["output"].get("match") if lookup_calls else None
-    resolved_problem = lookup_calls[0]["output"].get("problem") if lookup_calls else None
-
-    # Every destination reached this turn (called directly, queued by a lookup, or backfilled).
+    # Every destination reached this turn (called directly or backfilled).
     route_calls = [c for c in trace if c["tool"] == "open_setting"]
     attached_destinations = [
         c["output"]["destination"] for c in route_calls
         if c["output"].get("attached") and c["output"].get("destination")
     ]
-    # Which KB solution each attached action came from, mapped back through the
-    # lookups' candidate actions (several solutions can share one destination).
-    by_action: dict[str, list[str]] = {}
-    for c in lookup_calls:
-        for sol in c["output"].get("solutions") or []:
-            for call in (sol.get("action") if isinstance(sol.get("action"), list) else [sol.get("action")] if sol.get("action") else []):
-                for tool, arg in call.items():
-                    key = json.dumps([tool, {"name": arg} if tool == "open_setting" else arg], sort_keys=True)
-                    by_action.setdefault(key, []).append(sol["name"])
-    attached_solutions: list[str] = []
-    for c in trace:
-        if c["tool"] in ("open_setting", "open_plugin", "set_param") and c["output"].get("attached"):
-            # a dropdown value doesn't change which solution a route belongs to
-            inp = {"name": c["input"].get("name")} if c["tool"] == "open_setting" else c["input"]
-            attached_solutions.extend(by_action.get(json.dumps([c["tool"], inp], sort_keys=True), []))
     setting_calls = [{"tool": "open_setting", "args": dict(c.get("input") or {}),
                       "ok": bool((c.get("output") or {}).get("attached"))}
                      for c in trace if c["tool"] == "open_setting"]
 
     return {
-        "match": match,
-        "resolved_problem": resolved_problem,
         "attached_destinations": attached_destinations,
-        "attached_solutions": attached_solutions,
         "no_tool_calls": len(trace) == 0,
         "response_text": response_text,
         "web_research_called": len(research_calls) > 0,
@@ -108,7 +82,6 @@ def actual_outcome(trace: list[dict], response_text: str = "", confidence_tier: 
         "action_calls": action_calls(trace),
         "setting_calls": setting_calls,
         "first_tool": trace[0]["tool"] if trace else None,
-        "lookup_count": len(lookup_calls),
         "auto_run": auto_run,  # None on a build that predates it
     }
 
@@ -139,9 +112,6 @@ def grade(expect: dict, actual: dict) -> list[dict]:
             # A list: none of them may be on it.
             got = actual["attached_destinations"]
             ok = not set(expected if isinstance(expected, list) else [expected]) & set(got)
-        elif key == "walkthrough_solution":
-            got = actual["attached_solutions"]
-            ok = membership_pass(expected, got)
         elif key == "action_calls":
             # null -> no action call at all (accepted or refused); a list ->
             # those calls, in order, as a subsequence of what was called.

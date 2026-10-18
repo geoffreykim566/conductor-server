@@ -1,15 +1,9 @@
 """Turn text: a restated reply replaces the earlier copy; text beside an all-refused call gives way."""
 from __future__ import annotations
 
-import importlib
-from unittest.mock import AsyncMock, patch
-
 from conftest import resp, text_block, tool_use
 
 from app.pipeline.turn_state import TurnState
-
-# The module, not the function app.pipeline re-exports under the same name.
-respond_mod = importlib.import_module("app.pipeline.respond")
 
 
 def test_restated_reply_replaces_the_earlier_copy() -> None:
@@ -29,14 +23,11 @@ def test_restated_reply_replaces_the_earlier_copy() -> None:
 
 async def test_text_beside_refused_call_gives_way(run) -> None:
     """A refused dropdown pick's "Press Run to set X" is dropped once the next call writes the reply."""
-    finalize = AsyncMock(return_value=("reply", "generic"))
-    with patch.object(respond_mod, "finalize_answer", finalize):
-        await run([
-            resp(text_block("Press Run to set imported files to Flex On, Smart Tempo Off."),
-                 tool_use("open_setting", {"name": "smart tempo import default", "value": "Flex On, Smart Tempo Off"}, "c1")),
-            resp(text_block("Press Run to open the import setting. Which Flex On option do you want?"),
-                 tool_use("open_setting", {"name": "smart tempo import default"}, "c2")),
-            resp(text_block("")),
-        ], messages=[{"role": "user", "content": "set imported files to flex on"}])
-    text = finalize.call_args.args[2]
-    assert "Smart Tempo Off" not in text and "Which Flex On option" in text, text
+    result, _ = await run([
+        resp(text_block("Press Run to set imported files to Flex On, Smart Tempo Off."),
+             tool_use("open_setting", {"name": "smart tempo import default", "value": "Flex On, Smart Tempo Off"}, "c1")),
+        resp(text_block("Press Run to open the import setting. Which Flex On option do you want?"),
+             tool_use("open_setting", {"name": "smart tempo import default"}, "c2")),
+        resp(text_block("")),
+    ], messages=[{"role": "user", "content": "set imported files to flex on"}])
+    assert "Smart Tempo Off" not in result.text and "Which Flex On option" in result.text, result.text

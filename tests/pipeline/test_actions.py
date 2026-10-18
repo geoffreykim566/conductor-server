@@ -1,7 +1,6 @@
 """How model-called action and route tools build up the turn's one card."""
 from __future__ import annotations
 
-from app import pipeline
 from app.pipeline import notes, settings
 from conftest import open_plugin, queue_setting, resp, route, set_param, text_block, tool_use
 
@@ -57,7 +56,6 @@ async def test_route_and_action_share_the_card(run) -> None:
         resp(text_block("done")),
     ])
     assert result.walkthrough_steps == route("buffer size") + [{"ax_open_plugin": "Compressor"}], result.walkthrough_steps
-    assert result.card_from_lookup is False
 
 
 async def test_unknown_route_refused(run) -> None:
@@ -82,4 +80,5 @@ async def test_one_visit_per_setting(run) -> None:
     assert outs[2]["chooses"] == "Monophonic" and outs[2].get("replaces_earlier"), outs[2]
     want = queue_setting("flex time", "Monophonic")["steps"] + route("buffer size")
     assert result.walkthrough_steps == want, result.walkthrough_steps
-    assert [ln.split(" -- ")[0] for ln in pipeline.card_descriptions(result.trace)] == ["opens buffer size", "opens flex time"]
+    attached = [c["input"]["name"] for c in result.trace if c["tool"] == "open_setting" and c["output"].get("attached")]
+    assert attached == ["buffer size", "flex time"], attached

@@ -21,24 +21,6 @@ SCENARIOS_DIR = Path(__file__).parents[1] / "scenarios"
 SETS = {"core": ["core.json"], "extended": ["extended.json"], "all": ["core.json", "extended.json"]}
 
 
-# Graded only for a decider that cites the KB: Sol has no cite_kb (README: no-KB grading).
-KB_ONLY_KEYS = {"match", "resolved_problem", "walkthrough_solution", "lookup_count"}
-
-
-def gradable(expect: dict) -> dict:
-    """The expect block this build's decider can be held to."""
-    if config.DECIDER != "sol":
-        return expect
-    return {k: v for k, v in expect.items() if k not in KB_ONLY_KEYS}
-
-
-def decider_text(messages: list[dict]) -> str:
-    """This turn's decider text before the writer: assistant text since the user's message."""
-    start = max((i for i, m in enumerate(messages) if m["role"] == "user" and isinstance(m["content"], str)), default=-1)
-    return " ".join(b.get("text", "") for m in messages[start + 1:] if m["role"] == "assistant"
-                    and isinstance(m["content"], list) for b in m["content"] if b.get("type") == "text").strip()
-
-
 def load_scenarios(set_name: str = "all") -> list[dict]:
     return [s for f in SETS[set_name] for s in json.loads((SCENARIOS_DIR / f).read_text())]
 # Voyage limits are high now; BATTERY_DELAY_S overrides per run.
@@ -80,15 +62,7 @@ async def run_scenario(scenario: dict) -> dict:
             print(f"  [ax_state: {ax_state[:200]}{'...' if len(ax_state) > 200 else ''}]")
         for call in result.trace:
             print(f"    tool call: {call['tool']}({call['input']})")
-            out = call["output"]
-            if call["tool"] in ("lookup_concept", "cite_kb"):
-                print(f"      -> match={out.get('match')!r} problem={out.get('problem')!r} confidence={out.get('match_confidence')!r}")
-                for sol in out.get("solutions", []):
-                    print(f"         solution: {sol['name']!r} weight={sol.get('seed_weight')} "
-                          f"action={sol.get('action')} distinguisher={sol.get('distinguisher')!r}")
-            else:
-                print(f"      -> {out}")
-        print(f"  decider text: {decider_text(result.messages)}")
+            print(f"      -> {call['output']}")
         print(f"  response: {result.text}")
         print(f"  walkthrough attached: {result.walkthrough_steps is not None}"
               + (f" -> {result.walkthrough_steps}" if result.walkthrough_steps else ""))
@@ -100,7 +74,7 @@ async def run_scenario(scenario: dict) -> dict:
                 f"{c['tool']}({c['args']}){'' if c['ok'] else ' REFUSED'}" for c in acts))
 
         if "expect" in turn:
-            turn_verdicts = grade(gradable(turn["expect"]), actual_outcome(result.trace, result.text, result.confidence_tier, result.sources,
+            turn_verdicts = grade(turn["expect"], actual_outcome(result.trace, result.text, result.confidence_tier, result.sources,
                                                             getattr(result, "auto_run", None)))
             for v in turn_verdicts:
                 v["turn"] = i
@@ -111,7 +85,7 @@ async def run_scenario(scenario: dict) -> dict:
                 print(f"    [{status}] {v['field']}: expected={v['expected']!r} actual={v['actual']!r}")
 
     if "expect" in scenario:
-        final_verdicts = grade(gradable(scenario["expect"]), actual_outcome(trace, response_text, confidence_tier, sources, auto_run))
+        final_verdicts = grade(scenario["expect"], actual_outcome(trace, response_text, confidence_tier, sources, auto_run))
         for v in final_verdicts:
             v["turn"] = "final"
         verdicts.extend(final_verdicts)
@@ -128,8 +102,7 @@ async def run_battery_once(scenarios: list[dict], run_label: str = "") -> dict:
     per-scenario signature of every assertion's (turn, field, pass), not just counts,
     so --runs can show WHICH assertion flipped between runs."""
     label = f" ({run_label})" if run_label else ""
-    print(f"DECIDER: {config.decider_model()}"
-          + (f" (no-KB grading: {', '.join(sorted(KB_ONLY_KEYS))} skipped)" if config.DECIDER == "sol" else ""))
+    print(f"DECIDER: {config.SOL_MODEL}")
     results = []
     wall_start = time.monotonic()
     await db.connect()
