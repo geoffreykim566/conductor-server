@@ -53,7 +53,7 @@ def test_input_translation() -> None:
     assert items[0] == {"role": "developer", "content": "LIVE"}, items[0]
     assert items[1]["content"] == [{"type": "input_image", "image_url": "data:image/png;base64,AAA"},
                                    {"type": "input_text", "text": "add a compressor"}], items[1]
-    assert items[2:] == [{"role": "assistant", "content": "Adding it."}, rs,
+    assert items[2:] == [rs, {"role": "assistant", "content": "Adding it."},
                          {"type": "function_call", "call_id": "c1", "name": "open_plugin", "arguments": '{"plugin": "Compressor"}'},
                          {"type": "function_call_output", "call_id": "c1", "output": '{"attached": true}'}], items[2:]
 
@@ -70,14 +70,15 @@ def test_blocks_strip_sol_args() -> None:
 
 
 def test_replay_shows_sol_its_own_call() -> None:
-    """The stripped args go back into the function call, and text synthesized from `answer` isn't doubled."""
+    """The stripped args go back into the function call; text synthesized from `answer` goes back as Sol's message, not the arg."""
     msgs = [{"role": "user", "content": "x"},
             {"role": "assistant", "content": [{"type": "text", "text": "Adding it."},
                                               {"type": "tool_use", "id": "c1", "name": "open_plugin", "input": {"plugin": "Compressor"}}]}]
     stash = {"c1": {"args": {"answer": "Adding it.", "remaining_actions": ["set Threshold"]}, "reasoning": [], "synth_text": "Adding it."}}
     _, items = openai_io._input([{"type": "text", "text": "P"}], msgs, stash)
-    assert items[1:] == [{"type": "function_call", "call_id": "c1", "name": "open_plugin", "arguments": json.dumps(
-        {"plugin": "Compressor", "answer": "Adding it.", "remaining_actions": ["set Threshold"]})}], items
+    assert items[1:] == [{"role": "assistant", "content": "Adding it."},
+                         {"type": "function_call", "call_id": "c1", "name": "open_plugin", "arguments": json.dumps(
+                             {"plugin": "Compressor", "remaining_actions": ["set Threshold"]})}], items
 
 
 def test_written_text_wins_over_answer() -> None:

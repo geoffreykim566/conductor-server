@@ -32,6 +32,13 @@ def gradable(expect: dict) -> dict:
     return {k: v for k, v in expect.items() if k not in KB_ONLY_KEYS}
 
 
+def decider_text(messages: list[dict]) -> str:
+    """This turn's decider text before the writer: assistant text since the user's message."""
+    start = max((i for i, m in enumerate(messages) if m["role"] == "user" and isinstance(m["content"], str)), default=-1)
+    return " ".join(b.get("text", "") for m in messages[start + 1:] if m["role"] == "assistant"
+                    and isinstance(m["content"], list) for b in m["content"] if b.get("type") == "text").strip()
+
+
 def load_scenarios(set_name: str = "all") -> list[dict]:
     return [s for f in SETS[set_name] for s in json.loads((SCENARIOS_DIR / f).read_text())]
 # Voyage limits are high now; BATTERY_DELAY_S overrides per run.
@@ -81,6 +88,7 @@ async def run_scenario(scenario: dict) -> dict:
                           f"action={sol.get('action')} distinguisher={sol.get('distinguisher')!r}")
             else:
                 print(f"      -> {out}")
+        print(f"  decider text: {decider_text(result.messages)}")
         print(f"  response: {result.text}")
         print(f"  walkthrough attached: {result.walkthrough_steps is not None}"
               + (f" -> {result.walkthrough_steps}" if result.walkthrough_steps else ""))

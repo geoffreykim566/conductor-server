@@ -1352,5 +1352,129 @@
         "text": "whats the best laptop for running big logic sessions"
       }
     ]
+  },
+  {
+    "name": "reply_card_plus_manual_steps_proc3",
+    "note": "2026-10-16 reply-slip attribution (sol-log.md): live-pass case; the runner prints Sol's text and the writer's reply side by side. Live: research found the setup steps, the reply said 'as described below' with none. The reply must hold the how-to itself.",
+    "expect": {
+      "response_not_contains": [
+        "described below",
+        "see below",
+        "steps below"
+      ],
+      "no_completion_claims": true
+    },
+    "turns": [
+      {
+        "text": "whats the sidechain on fabfilter pro-c 3 and how do i use",
+        "ax_fixture": {
+          "selected track": "Audio 1 (audio)",
+          "plugins on Audio 1": "none"
+        }
+      }
+    ]
+  },
+  {
+    "name": "reply_card_plus_manual_steps_sidechain_builtin",
+    "note": "2026-10-16 reply-slip attribution (sol-log.md): live-pass case; the runner prints Sol's text and the writer's reply side by side. Same shape with Logic's own Compressor: the card can load it, the side-chain source is set by hand, so the reply must give those steps.",
+    "expect": {
+      "response_not_contains": [
+        "described below",
+        "see below",
+        "steps below"
+      ],
+      "response_contains_any": [
+        "side chain",
+        "sidechain"
+      ],
+      "no_completion_claims": true
+    },
+    "turns": [
+      {
+        "text": "how do i sidechain my bass to the kick with a compressor",
+        "ax_fixture": {
+          "selected track": "Audio 1 (audio)",
+          "plugins on Audio 1": "none"
+        }
+      }
+    ]
+  },
+  {
+    "name": "reply_multi_action_comp_eq_lowcut",
+    "note": "2026-10-16 reply-slip attribution (sol-log.md): live-pass case; the runner prints Sol's text and the writer's reply side by side. Live: the low cut was promised but not queued (fixed by remaining_actions); the writer added a stray 'Run' line.",
+    "expect": {
+      "action_calls": [
+        {
+          "tool": "open_plugin",
+          "args": {
+            "plugin": "Compressor"
+          }
+        },
+        {
+          "tool": "open_plugin",
+          "args": {
+            "plugin": "Channel EQ"
+          }
+        },
+        {
+          "tool": "set_param",
+          "args": {
+            "plugin": "Channel EQ"
+          }
+        }
+      ],
+      "no_completion_claims": true
+    },
+    "turns": [
+      {
+        "text": "add a compressor and eq with a low cut",
+        "ax_fixture": {
+          "selected track": "Audio 1 (audio)",
+          "plugins on Audio 1": "none"
+        }
+      }
+    ]
+  },
+  {
+    "name": "reply_multi_action_three_plugins",
+    "note": "2026-10-16 reply-slip attribution (sol-log.md): live-pass case; the runner prints Sol's text and the writer's reply side by side. Live pass turn 4: three plug-ins plus a parameter in one request.",
+    "expect": {
+      "action_calls": [
+        {
+          "tool": "open_plugin",
+          "args": {
+            "plugin": "Compressor"
+          }
+        },
+        {
+          "tool": "open_plugin",
+          "args": {
+            "plugin": "DeEsser"
+          }
+        },
+        {
+          "tool": "open_plugin",
+          "args": {
+            "plugin": "Channel EQ"
+          }
+        },
+        {
+          "tool": "set_param",
+          "args": {
+            "plugin": "Channel EQ"
+          }
+        }
+      ],
+      "no_completion_claims": true
+    },
+    "turns": [
+      {
+        "text": "add a compressor, de-esser, and eq with a low cut",
+        "ax_fixture": {
+          "selected track": "Audio 1 (audio)",
+          "plugins on Audio 1": "none"
+        }
+      }
+    ]
   }
 ]

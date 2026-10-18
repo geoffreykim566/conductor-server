@@ -60,11 +60,15 @@ def _input(system: list[dict], msgs: list[dict], stash: dict) -> tuple[str, list
             text = "".join(b["text"] for b in c if b["type"] == "text")
             calls = [b for b in c if b["type"] == "tool_use"]
             first = stash.get(calls[0]["id"], {}) if calls else {}
-            if text and text != first.get("synth_text"):  # synthesized text is already in `answer`
-                items.append({"role": "assistant", "content": text})
             items += first.get("reasoning", [])
+            # Text synthesized from `answer` goes back as Sol's own message, not as the arg: seeing
+            # it only inside the call, Sol wrote the whole reply again on a follow-up call.
+            if text:
+                items.append({"role": "assistant", "content": text})
+            synth = bool(text) and text == first.get("synth_text")
             items += [{"type": "function_call", "call_id": b["id"], "name": b["name"],
-                       "arguments": json.dumps({**b["input"], **stash.get(b["id"], {}).get("args", {})})}
+                       "arguments": json.dumps({**b["input"], **{k: v for k, v in stash.get(b["id"], {}).get(
+                           "args", {}).items() if not (synth and k == "answer")}})}
                       for b in calls]
             continue
         parts = []
@@ -175,6 +179,15 @@ async def call_decider(system: list[dict], tools_param: list[dict] | None, msgs:
                 j.get("model", config.SOL_MODEL), time.monotonic() - t0, usage.input_tokens, cached,
                 usage.output_tokens, (u.get("output_tokens_details") or {}).get("reasoning_tokens"),
                 [f"{b.name}({json.dumps(b.input)})" for b in calls], remaining, stop)
+    # Sol's own text, before the writer rewords it: where a reply slip started.
+    sol_text = " ".join(b.text for b in blocks if b.type == "text")
+    if sol_text:
+        log.warning("[sol_text] %s", sol_text)
+    # Written text wins over `answer`; logged as a possible cause of the 10-15 Pro-C 3 reply
+    # that lost its steps (unconfirmed).
+    dropped = [a["answer"] for a in sol_args.values() if str(a.get("answer") or "").strip()]
+    if dropped and not synth and sol_text:
+        log.warning("[sol_answer_dropped] %r", dropped)
     # more_actions: the turn still owes an action, so early exit waits (respond._can_exit_early).
     return SimpleNamespace(content=blocks, stop_reason=stop, usage=usage, model=j.get("model", config.SOL_MODEL),
                            more_actions=bool(remaining))
