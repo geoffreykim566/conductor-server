@@ -25,7 +25,7 @@ async def test_text_beside_refused_call_gives_way(run) -> None:
     """A refused dropdown pick's "Press Run to set X" is dropped once the next call writes the reply."""
     result, _ = await run([
         resp(text_block("Press Run to set imported files to Flex On, Smart Tempo Off."),
-             tool_use("open_setting", {"name": "smart tempo import default", "value": "Flex On, Smart Tempo Off"}, "c1")),
+             tool_use("open_setting", {"name": "smart tempo import default", "value": "Flex On"}, "c1")),
         resp(text_block("Press Run to open the import setting. Which Flex On option do you want?"),
              tool_use("open_setting", {"name": "smart tempo import default"}, "c2")),
         resp(text_block("")),

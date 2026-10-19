@@ -44,6 +44,7 @@ The decider's tools: their schemas (`TOOLS`) and executors. There are two kinds:
 - **Offered options count as the user's pick** (user call: users shouldn't have to type option names). It's a word match on the previous decider text, including a question asked only through `ask_clarifying_question`, so any option it mentioned is allowed; a first turn has none.
 - **`_user_named` compares letters and digits only** (no punctuation needed) and reads "smart tempo" as Logic's "ST" abbreviation.
 - **`processing threads` has `model_may_pick: []`:** the fix is max threads, not "Automatic", and the client can't pick a number, so the card stops at the pane.
+- **Sol may pick any option on every dropdown except processing threads** (user call 10-19). The narrow lists were a guard on the Claude decider, set to the KB's fixes; with Revert on every pick, a card that stops at the pane costs more than a wrong pick. Buffer takes an exact size as well as larger/smaller: switching between recording (64–128) and mixing (512–1024) is more than one step.
 
 ## Adding things
 

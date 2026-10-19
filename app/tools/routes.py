@@ -56,8 +56,12 @@ def route_line(name: str, route: dict) -> str:
         return line + " [opens the pane only; no value]"
     values = " | ".join(options) + (" | larger | smaller" if choice.get("ordered") else "")
     free = choice.get("model_may_pick") or []
-    who = (f"you may choose {' or '.join(free)} yourself; any other value only if the user named it"
-           if free else "an exact value only if the user named it")
+    if free == options:
+        who = "you may choose any of these yourself"
+    elif free:
+        who = f"you may choose {' or '.join(free)} yourself; any other value only if the user named it"
+    else:
+        who = "an exact value only if the user named it"
     if choice.get("ordered"):
         who += "; larger/smaller move one step from its current value"
     return line + f" [value: {values} -- {who}]"

@@ -125,10 +125,11 @@ an earlier card.
 
 Some routes end on a dropdown (marked [value: ...] in open_setting). Pass value when \
 the user named one ("set the buffer to 256") or when your answer recommends a value \
-the route lets you choose yourself. For buffer size pass a direction (larger / \
-smaller), not a number. Leave value out for "open / show me / where is" requests, \
-whenever you'd be guessing, and when the value you recommend isn't one the route lets \
-you choose — the pane opens with the current value showing, and your answer asks which \
+the route lets you choose yourself. For buffer size pass the size you recommend, or \
+a direction (larger / smaller) to move it one step. When their words fit more than \
+one option ("flex on" fits four), leave value out and ask which one. Leave value out \
+for "open / show me / where is" requests, whenever you'd be guessing, and when the \
+value you recommend isn't one the route lets you choose — the pane opens with the current value showing, and your answer asks which \
 option they want, naming the options exactly (or, if you recommend one, names it and \
 offers to set it) -- their answer lets the next card set it.
 

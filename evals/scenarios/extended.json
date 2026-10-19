@@ -1002,8 +1002,7 @@
         {
           "tool": "open_setting",
           "args": {
-            "name": "buffer size",
-            "value": "larger"
+            "name": "buffer size"
           }
         }
       ],
@@ -1013,6 +1012,20 @@
           "args": {
             "name": "buffer size",
             "value": "smaller"
+          }
+        },
+        {
+          "tool": "open_setting",
+          "args": {
+            "name": "buffer size",
+            "value": "32"
+          }
+        },
+        {
+          "tool": "open_setting",
+          "args": {
+            "name": "buffer size",
+            "value": "64"
           }
         }
       ],
@@ -1034,6 +1047,20 @@
           "args": {
             "name": "buffer size",
             "value": "larger"
+          }
+        },
+        {
+          "tool": "open_setting",
+          "args": {
+            "name": "buffer size",
+            "value": "512"
+          }
+        },
+        {
+          "tool": "open_setting",
+          "args": {
+            "name": "buffer size",
+            "value": "1024"
           }
         }
       ],
@@ -1229,7 +1256,7 @@
   },
   {
     "name": "dropdown_import_no_value_asks",
-    "note": "2026-09-29 (user call): a dropdown value that fits several options, or none given, opens the pane and the reply asks which one, naming the real options -- the answer sets it on the next card (offered options count as the user's pick). Live, 'flex on' got no card and a reply naming a 'Flex On' option that doesn't exist.",
+    "note": "2026-09-29 (user call): a dropdown value that fits several options, or none given, opens the pane and the reply asks which one, naming the real options -- the answer sets it on the next card (offered options count as the user's pick). Live, 'flex on' got no card and a reply naming a 'Flex On' option that doesn't exist. 10-19 (user call): a 'where do i change' question needs only the pane, not the options.",
     "expect": {
       "setting_calls": [
         {
@@ -1241,10 +1268,6 @@
             "value"
           ]
         }
-      ],
-      "response_contains_any": [
-        "smart tempo on",
-        "smart tempo off"
       ],
       "no_completion_claims": true
     },

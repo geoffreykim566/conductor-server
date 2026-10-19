@@ -21,9 +21,8 @@ def test_named_value_ends_on_choose_step() -> None:
 
 
 def test_buffer_size_values() -> None:
-    """A number the user didn't name is refused; a direction is the model's to pick."""
-    out = _setting("buffer size", "1024", said="my audio keeps crackling")
-    assert out["attached"] is False and "larger or smaller" in out["reason"], out
+    """The model may pick a size or a direction; a size Logic doesn't offer is refused."""
+    assert _setting("buffer size", "1024", said="my audio keeps crackling")["chooses"] == "1024"
     assert _setting("buffer size", "larger", said="my audio keeps crackling")["chooses"] == "larger"
     assert _setting("buffer size", "Smaller")["chooses"] == "smaller"
     out = _setting("buffer size", "2048", said="set buffer to 2048")
@@ -31,21 +30,21 @@ def test_buffer_size_values() -> None:
 
 
 def test_sample_rate_values() -> None:
-    """Sample rate: named in any common spelling, never chosen for the user, no direction."""
+    """Sample rate: named in any common spelling, the model may choose one, no direction."""
     assert _setting("sample rate", "48000", said="change the sample rate to 48k")["chooses"] == "48 kHz"
     assert _setting("sample rate", "44.1", said="set it to 44100")["chooses"] == "44.1 kHz"
-    assert _setting("sample rate", "48 kHz", said="my file sounds slowed down")["attached"] is False
+    assert _setting("sample rate", "48 kHz", said="my file sounds slowed down")["chooses"] == "48 kHz"
     assert _setting("sample rate", "larger", said="set sample rate higher")["attached"] is False
 
 
 def test_options_the_model_may_pick() -> None:
-    """Threads: Automatic only when the user names it (the KB says max on Apple
-    Silicon and the route can't pick a number). Flex time: model may pick Monophonic."""
+    """Threads: Automatic only when the user names it (the fix is max threads and the
+    route can't pick a number). Flex time and buffer size: the model may pick any option."""
     assert _setting("processing threads", "automatic", said="system overload on my M3")["attached"] is False
     assert _setting("processing threads", "automatic", said="set processing threads to automatic")["chooses"] == "Automatic"
     assert _setting("flex time", "mono", said="the vocal timing is off")["chooses"] == "Monophonic"
-    assert _setting("flex time", "Speed (FX)", said="fix the timing")["attached"] is False
-    assert _setting("flex time", "Speed (FX)", said="set flex to speed")["chooses"] == "Speed (FX)"
+    assert _setting("flex time", "Speed (FX)", said="fix the timing")["chooses"] == "Speed (FX)"
+    assert _setting("buffer size", "512", said="my session crackles")["chooses"] == "512"
 
 
 def test_flex_pitch_fixed_option() -> None:
@@ -65,7 +64,7 @@ def test_region_smart_tempo() -> None:
     assert _setting("follow tempo")["steps"] == [
         {"shortcut": "I"}, {"click_text": "Region", "expect": ["Smart Tempo"]}]
     assert _setting("follow tempo", "off", said="stop the region stretching")["chooses"] == "Off"
-    assert _setting("follow tempo", "On", said="fix the stretching")["attached"] is False
+    assert _setting("follow tempo", "On", said="fix the stretching")["chooses"] == "On"
     out = _setting("follow tempo", "On + Align Bars", said="set smart tempo to on + align bars")
     assert out["steps"][-1]["shows"] == {"On + Align Bars": "Bars", "On + Align Bars and Beats": "Beats"}, out
     assert "shows" not in _setting("buffer size", "256", said="set my buffer to 256")["steps"][-1]
@@ -77,13 +76,14 @@ def test_region_smart_tempo() -> None:
 
 def test_offered_option_counts_as_named() -> None:
     """An option the previous reply offered is the user's pick once they answer;
-    without the offer it's still refused."""
+    without the offer it's still refused on a route the model may not pick on (threads)."""
     offer = "which one do you want: on, on + align bars, or on + align bars and beats?"
     assert _setting("follow tempo", "On + Align Bars and Beats", said="the last one", offered=offer)["chooses"] == \
         "On + Align Bars and Beats"
     assert _setting("buffer size", "1024", said="yes", offered="want me to set it to 1024?")["chooses"] == "1024"
-    assert _setting("follow tempo", "On + Align Bars and Beats", said="the last one")["attached"] is False
-    assert _setting("sample rate", "48 kHz", said="still slow", offered="")["attached"] is False
+    assert _setting("processing threads", "Automatic", said="yes", offered="want me to set threads to automatic?")["chooses"] == \
+        "Automatic"
+    assert _setting("processing threads", "Automatic", said="yes", offered="")["attached"] is False
 
 
 def test_smart_tempo_import_default() -> None:
@@ -93,7 +93,7 @@ def test_smart_tempo_import_default() -> None:
     assert _setting("smart tempo import default", "Flex On, ST On + Align Bars",
                     said="imported files: flex on, smart tempo on + align bars")["chooses"] == "Flex On, ST On + Align Bars"
     assert _setting("smart tempo import default", "Flex On, Smart Tempo On",
-                    said="turn smart tempo on for imports")["attached"] is False
+                    said="turn smart tempo on for imports")["chooses"] == "Flex On, Smart Tempo On"
     assert _setting("smart tempo import default", "Flex Off", said="stop my imports stretching")["chooses"] == "Flex Off"
 
 

@@ -592,14 +592,13 @@
   },
   {
     "name": "dropdown_sample_rate_unnamed",
-    "note": "2026-09-22 dropdown routes: a route ending on a dropdown picks a checked value or opens the pane only -- never leaves the dropdown open (live: 'open buffer size then open compressor' left the dropdown open and the plugin search never got focus). Sample-rate mismatch symptom: the model may open the pane but never picks a rate the user didn't name (gate-enforced; this checks the reply stays honest about it).",
+    "note": "2026-09-22 dropdown routes: a route ending on a dropdown picks a checked value or opens the pane only -- never leaves the dropdown open (live: 'open buffer size then open compressor' left the dropdown open and the plugin search never got focus). Sample-rate mismatch symptom: the card opens sample rate (10-19: the model may pick a rate itself, Revert undoes it); the reply stays honest that nothing has run yet.",
     "expect": {
-      "forbidden_setting_calls": [
+      "setting_calls": [
         {
           "tool": "open_setting",
           "args": {
-            "name": "sample rate",
-            "value": ""
+            "name": "sample rate"
           }
         }
       ],
@@ -698,6 +697,7 @@
           }
         }
       ],
+      "auto_run": true,
       "no_completion_claims": true
     }
   },
