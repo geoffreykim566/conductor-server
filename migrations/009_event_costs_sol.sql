@@ -14,7 +14,7 @@ alter table events add column if not exists tokens_cached integer not null defau
 drop view if exists event_costs;
 create view event_costs as
 select e.*,
-    case when e.model like 'claude%' then
+    case when e.model is null or e.model like 'claude%' then   -- null = before 007, all Claude
         round(e.tokens_in / 1e6 * 3.00, 6) + round(e.tokens_out / 1e6 * 15.00, 6)
     else
         round(e.tokens_in / 1e6 * 2.00, 6) + round(e.tokens_cached / 1e6 * 0.10, 6)
