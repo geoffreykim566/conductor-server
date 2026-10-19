@@ -110,8 +110,9 @@ async def chat(request: Request, req: ChatRequest, user: asyncpg.Record = Depend
                     result = payload
                     tokens_in = sum(u["input_tokens"] for u in result.usage)
                     tokens_out = sum(u["output_tokens"] for u in result.usage)
+                    tokens_cached = sum(u.get("cache_read_input_tokens", 0) for u in result.usage)
                     event_id = await db.insert_event(
-                        user_id=user["id"], tokens_in=tokens_in, tokens_out=tokens_out,
+                        user_id=user["id"], tokens_in=tokens_in, tokens_out=tokens_out, tokens_cached=tokens_cached,
                         model=SOL_MODEL, source_tier=result.confidence_tier,
                         latency_ms=round((time.monotonic() - turn_started) * 1000),
                         prompt=req.message, response=result.text,

@@ -90,6 +90,7 @@ async def insert_event(
     user_id: uuid.UUID,
     tokens_in: int,
     tokens_out: int,
+    tokens_cached: int = 0,
     model: str | None = None,
     source_tier: str | None = None,
     latency_ms: int | None = None,
@@ -98,12 +99,12 @@ async def insert_event(
 ) -> uuid.UUID:
     row = await pool().fetchrow(
         """
-        insert into events (user_id, tokens_in, tokens_out,
+        insert into events (user_id, tokens_in, tokens_out, tokens_cached,
                              model, source_tier, latency_ms, prompt, response)
-        values ($1, $2, $3, $4, $5, $6, $7, $8)
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         returning id
         """,
-        user_id, tokens_in, tokens_out, model, source_tier, latency_ms, prompt, response,
+        user_id, tokens_in, tokens_out, tokens_cached, model, source_tier, latency_ms, prompt, response,
     )
     return row["id"]
 
