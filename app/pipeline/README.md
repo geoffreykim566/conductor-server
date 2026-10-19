@@ -108,7 +108,7 @@ A card runs without Run only when all of these hold:
 - the card isn't a re-shown one (backfill);
 - no route on the card has `wait_for_run`.
 
-The KB era also held back any card a citation led to (a "bypass control surfaces" card off a moderate match once auto-ran on a turn whose own reply said "I don't have a verified fix"). That guard went with the citations, so a symptom phrased as a command ("my vocal sounds muddy, fix it") now auto-runs the fix Sol picks, when the client's auto-run setting is on. Open item in the feature log.
+The KB era also held back any card a citation led to (a "bypass control surfaces" card off a moderate match once auto-ran on a turn whose own reply said "I don't have a verified fix"). That guard went with the citations, so a symptom phrased as a command ("my vocal sounds muddy, fix it") auto-runs the fix Sol picks when the client's auto-run setting is on. That's on purpose (user call 10-19): "fix it" is a direct command and Revert undoes the card. A word-match hold was tried and dropped: it needed a hand-kept list of words too common to name a route ("sound", "time", "rate") and still misjudged cases ("mic" vs "microphone access").
 
 There's deliberately no user-facing explain/do mode toggle (user call): the decider picks per turn, and the Run press stays the floor for anything the rules above don't clear.
 
