@@ -11,4 +11,4 @@ Plain SQL files, applied in filename order. There's no migration runner.
 
 ## Adding one
 
-Name it `00N_what_it_does.sql`, the next number. Make it idempotent where you can (`add column if not exists`), since it may be re-applied by hand. Apply it to the local DB, then rebuild.
+Name it `00N_what_it_does.sql`, the next number. Make it idempotent where you can (`add column if not exists`), since it may be re-applied by hand. If the old server would break once it runs (it removes something the old code uses), add a header line `-- Release: after the deploy`; the release skill applies those after the new server is live. Apply it to the local DB, then rebuild.
