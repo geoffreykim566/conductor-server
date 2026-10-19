@@ -21,7 +21,7 @@ SOL_MAX_OUTPUT_TOKENS = 8192
 # findings, so low effort (app/research/README.md).
 RESEARCH_EFFORT = "low"
 # 90s timed out every real research call (Claude era); kept as the ceiling.
-RESEARCH_CALL_TIMEOUT_S = float(os.environ.get("RESEARCH_CALL_TIMEOUT_S", "150.0"))
+RESEARCH_CALL_TIMEOUT_S = float(os.environ.get("RESEARCH_CALL_TIMEOUT_S", "90.0"))
 
 FREE_LIMIT = int(os.environ.get("FREE_LIMIT", "50"))
 
