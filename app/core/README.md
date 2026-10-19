@@ -7,7 +7,7 @@ Shared infrastructure that every other package imports. Nothing in here imports 
 | File | What |
 |---|---|
 | `config.py` | Every setting: env vars plus model names. Secrets only from env (`.env.local` locally) |
-| `db.py` | asyncpg pool (pgvector + jsonb codecs) and every query outside admin |
+| `db.py` | asyncpg pool (jsonb codec) and every query outside admin |
 | `signing.py` | HMAC-signed conductor ids (`<uuid>.<sig>`) |
 | `ratelimit.py` | slowapi limiter keyed by client IP |
 | `budget.py` | Daily-spend circuit breaker |

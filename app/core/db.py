@@ -4,7 +4,6 @@ import json
 import uuid
 
 import asyncpg
-import pgvector.asyncpg
 
 from app.core.config import DATABASE_URL, FREE_LIMIT
 
@@ -12,7 +11,6 @@ _pool: asyncpg.Pool | None = None
 
 
 async def _init_conn(conn: asyncpg.Connection) -> None:
-    await pgvector.asyncpg.register_vector(conn)
     await conn.set_type_codec(
         "jsonb",
         encoder=json.dumps,

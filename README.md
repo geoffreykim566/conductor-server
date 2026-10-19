@@ -1,6 +1,6 @@
 # Conductor server (v3)
 
-The API the Conductor macOS client talks to. A user's message plus live Logic Pro context (screenshots, an Accessibility dump) goes through a tool-calling pipeline. The pipeline returns a reply and, when the user wants something done, a **card**: steps the client runs on their Mac when they press Run. FastAPI + Postgres/pgvector, deployed on Railway.
+The API the Conductor macOS client talks to. A user's message plus live Logic Pro context (screenshots, an Accessibility dump) goes through a tool-calling pipeline. The pipeline returns a reply and, when the user wants something done, a **card**: steps the client runs on their Mac when they press Run. FastAPI + Postgres, deployed on Railway.
 
 ## Layout
 

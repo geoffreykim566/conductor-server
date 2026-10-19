@@ -23,7 +23,7 @@ SETS = {"core": ["core.json"], "extended": ["extended.json"], "all": ["core.json
 
 def load_scenarios(set_name: str = "all") -> list[dict]:
     return [s for f in SETS[set_name] for s in json.loads((SCENARIOS_DIR / f).read_text())]
-# Voyage limits are high now; BATTERY_DELAY_S overrides per run.
+# BATTERY_DELAY_S overrides per run.
 BETWEEN_SCENARIOS_DELAY_S = float(os.environ.get("BATTERY_DELAY_S", 2))
 
 
