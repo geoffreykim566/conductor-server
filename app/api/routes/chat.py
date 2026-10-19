@@ -16,10 +16,18 @@ from app.core import budget, db
 from app.core.config import RATE_LIMIT, SOL_MODEL
 from app.core.ratelimit import limiter
 from app.pipeline import respond
+from app.pipeline.openai_io import SolError
 
 log = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Older clients show `message` as is; newer ones pick their own text from `kind` (README: Errors).
+ERROR_TEXT = {
+    "down": "Conductor is down right now. Please try again later.",
+    "busy": "Too many messages at once. Please wait a minute and try again.",
+    "retry": "Something went wrong on Conductor's end. Please try again in a minute.",
+}
 
 
 @router.post("/v3/chat")
@@ -71,10 +79,13 @@ async def chat(request: Request, req: ChatRequest, user: asyncpg.Record = Depend
                     research_confirm=req.research_confirm, resume=req.resume,
                 )
                 await queue.put(("result", result))
+            except SolError as e:
+                log.warning("[sol_error] kind=%s %s", e.kind, e)
+                await queue.put(("error", e.kind))
             except Exception as e:
-                # The client only gets "Type: message"; log the traceback here.
+                # The client never sees the exception; the traceback is only here.
                 log.exception("[turn_error] pipeline raised %s", type(e).__name__)
-                await queue.put(("error", e))
+                await queue.put(("error", "retry"))
 
         turn_started = time.monotonic()
         task = asyncio.create_task(run())
@@ -86,7 +97,12 @@ async def chat(request: Request, req: ChatRequest, user: asyncpg.Record = Depend
                 elif kind == "status":
                     yield sse({"type": "status", "text": payload})
                 elif kind == "error":
-                    yield sse({"type": "error", "message": f"{type(payload).__name__}: {payload}"})
+                    # A failed turn gives its message back (a resume's was claimed by the parked request).
+                    try:
+                        await db.refund_free_message(user["id"])
+                    except Exception:
+                        log.exception("[refund_failed] user=%s", user["id"])
+                    yield sse({"type": "error", "kind": payload, "message": ERROR_TEXT[payload]})
                     return
                 else:  # "result"
                     result = payload

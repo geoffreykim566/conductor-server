@@ -77,6 +77,14 @@ async def claim_free_message(user_id: uuid.UUID) -> asyncpg.Record | None:
     )
 
 
+async def refund_free_message(user_id: uuid.UUID) -> None:
+    """Give back the message a failed turn claimed (never below 0)."""
+    await pool().execute(
+        "update users set free_used = greatest(free_used - 1, 0) where id = $1",
+        user_id,
+    )
+
+
 async def insert_event(
     *,
     user_id: uuid.UUID,

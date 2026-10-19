@@ -99,6 +99,22 @@ async def test_retries_rate_limit_and_malformed_args(sol) -> None:
     assert resp.usage.input_tokens == 40 and resp.usage.cache_read_input_tokens == 60, resp.usage
 
 
+@pytest.mark.parametrize("responses, kind, cause, calls", [
+    ([http(429, '{"error": {"code": "insufficient_quota"}}')], "down", "quota", 1),  # not retried
+    ([http(401, "bad key")], "down", "auth", 1),
+    ([http(400, "bad request")], "retry", "bad_request", 1),
+    ([http(503, "overloaded")] * 5, "down", "outage", 5),
+    ([http(429, "slow down")] * 5, "busy", "rate_limit", 5),
+    ([httpx.ReadTimeout("slow")] * 5, "down", "timeout", 5),
+])
+async def test_failures_raise_sol_error(sol, responses, kind, cause, calls) -> None:
+    """Each failure ends as a SolError with the kind the user is told; only transient ones are retried."""
+    sol.side_effect = responses
+    with pytest.raises(openai_io.SolError) as e:
+        await openai_io.call_decider([{"type": "text", "text": "P"}], [], [{"role": "user", "content": "hi"}])
+    assert (e.value.kind, e.value.cause, sol.call_count) == (kind, cause, calls), e.value
+
+
 async def test_final_call_sends_tools_with_choice_none(sol) -> None:
     """The tools-off final call still sends Sol's tools (history may hold calls), with tool_choice none."""
     sol.side_effect = [http(200, rj(msg("ok")))]

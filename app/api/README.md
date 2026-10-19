@@ -34,7 +34,7 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 - then exactly one of:
   - `done`: `event_id`, `remaining`, `sources`, `walkthrough_steps`, `auto_run`, `history`
   - `research_prompt`: `query`, `history`
-  - `error`
+  - `error`: `kind` (`down` | `busy` | `retry`) and `message`, the fixed text for it (Errors, below)
 
 **Order of checks:**
 1. The budget breaker returns 503.
@@ -50,8 +50,13 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 - **The body-size cap is middleware**, because uvicorn reads the body before pydantic runs. It's bounded by one turn's screenshots plus a text history; screenshots never accumulate.
 - **The confidence badge is disabled:** `done.source_tier` is always `""`. The tier is a trace rule and fired on plain observations ("which tracks are muted"). It's still computed for the battery and logs.
 - **Known soft spot:** history isn't signed, so a hand-built "parked" transcript gets one uncharged answer. Accepted; the free tier is a soft cap.
-- **Pipeline exceptions are logged as `[turn_error]`** with the traceback before the `error` event goes out. Without it a missing migration failed every lookup and nothing reached the logs.
-- **Cancelling:** when the client disconnects mid-turn (Esc), the pipeline task is cancelled. A cancelled turn still uses up its free message.
+- **Errors.** A failed turn tells the user only whether it's worth retrying; the cause stays in the log. `openai_io.post` retries 429 / 5xx / network / malformed tool JSON (4×, ~15 s), then raises `SolError(kind, cause)`:
+  - `down` ("Conductor is down"): out of credit (`insufficient_quota`, not retried), a rejected key, 5xx or timeouts after retries.
+  - `busy` ("Too many messages at once"): OpenAI's rate limit after retries. It's per org, so every user shares it.
+  - `retry` ("Something went wrong… try again in a minute"): a 400 (we built a bad request) and any bug in our code.
+
+  OpenAI isn't named and the credit state never leaks (user call, 10-18). The client picks its own text from `kind`; `message` is there for older clients, which show it as is. Logged as `[sol_error] kind=… cause: HTTP …` (OpenAI's body included) or `[turn_error]` with the traceback. Without the traceback a missing migration once failed every lookup and nothing reached the logs.
+- **A failed turn gives its free message back** (`db.refund_free_message`, never below 0), a resume included, since its charge was taken on the parked request. Silent: the client just refreshes the counter. A cancel (Esc, disconnect) is *not* refunded (user call, 10-18): the pipeline task is cancelled and the message stays used. Neither is a turn parked for research and never resumed.
 - **Admin auth fails closed:** with no `ADMIN_PASSWORD`, nobody gets in.
 
 ## Adding a route

@@ -31,7 +31,18 @@ _STASH: contextvars.ContextVar[dict | None] = contextvars.ContextVar("sol_stash"
 
 
 class Retryable(Exception):
-    pass
+    def __init__(self, msg: str, kind: str = "retry", cause: str = "bad_response"):
+        super().__init__(msg)
+        self.kind, self.cause = kind, cause
+
+
+class SolError(Exception):
+    """An OpenAI call that failed for good. `kind` picks what the user is told
+    (down | busy | retry); `cause` is for the log only. app/api/README.md: Errors."""
+
+    def __init__(self, kind: str, cause: str, detail: str):
+        super().__init__(f"{cause}: {detail}")
+        self.kind, self.cause = kind, cause
 
 
 def _tools(ts: list[dict]) -> list[dict]:
@@ -118,22 +129,34 @@ def _blocks(j: dict) -> tuple[list, list[str], list[dict], dict, bool]:
 
 
 async def post(body: dict) -> dict:
-    """One Responses call, retried on 429 / 5xx / malformed tool JSON. Also web_research's."""
+    """One Responses call, retried on 429 / 5xx / network / malformed tool JSON; raises
+    SolError once it fails for good. Also web_research's."""
     headers = {"Authorization": "Bearer " + config.OPENAI_API_KEY}
     for attempt, delay in enumerate((*RETRY_DELAYS_S, None)):
         try:
             r = await _client.post(URL, json=body, headers=headers)
-            if r.status_code == 429 or r.status_code >= 500:
-                raise Retryable(f"HTTP {r.status_code}: {r.text[:200]}")
-            r.raise_for_status()
+            detail = f"HTTP {r.status_code}: {' '.join(r.text.split())[:300]}"  # one log line
+            if r.status_code == 429 and "insufficient_quota" in r.text:
+                raise SolError("down", "quota", detail)  # out of credit: retrying can't help
+            if r.status_code == 429:
+                raise Retryable(detail, "busy", "rate_limit")
+            if r.status_code >= 500:
+                raise Retryable(detail, "down", "outage")
+            if r.status_code in (401, 403):
+                raise SolError("down", "auth", detail)
+            if r.status_code >= 400:
+                raise SolError("retry", "bad_request", detail)
             j = r.json()
             if j.get("error"):
-                raise Retryable(str(j["error"])[:200])
+                raise Retryable(str(j["error"])[:300])
             _blocks(j)  # malformed tool JSON raises Retryable here, inside the retry loop
             return j
-        except (Retryable, httpx.TimeoutException, httpx.TransportError) as e:
+        except (Retryable, httpx.TransportError) as e:  # TransportError includes timeouts
             if delay is None:
-                raise
+                if isinstance(e, Retryable):
+                    raise SolError(e.kind, e.cause, str(e)) from e
+                raise SolError("down", "timeout" if isinstance(e, httpx.TimeoutException) else "network",
+                               f"{type(e).__name__}: {e}") from e
             log.warning("[sol_retry] attempt %d: %s: %s", attempt + 1, type(e).__name__, str(e)[:200])
             await asyncio.sleep(delay)
     raise AssertionError("unreachable")
@@ -144,7 +167,7 @@ async def call_decider(system: list[dict], tools_param: list[dict] | None, msgs:
     """One decider call. tools_param=None is the tools-off final call: the tools still go
     (history may hold function calls) with tool_choice none."""
     if not config.OPENAI_API_KEY:
-        raise RuntimeError("the decider needs OPENAI_API_KEY")
+        raise SolError("down", "auth", "OPENAI_API_KEY is not set")
     stash = _STASH.get()
     if stash is None:
         stash = {}
