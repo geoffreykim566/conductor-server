@@ -34,7 +34,7 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 - then exactly one of:
   - `done`: `event_id`, `remaining`, `sources`, `walkthrough_steps`, `auto_run`, `history`
   - `research_prompt`: `query`, `history`
-  - `error`: `kind` (`down` | `busy` | `retry`) and `message`, the fixed text for it (Errors, below)
+  - `error`: `kind` (`down` | `busy` | `retry`), `code` (the HTTP status behind it, or null) and `message`, the fixed text for the kind (Errors, below)
 
 **Order of checks:**
 1. The budget breaker returns 503.
@@ -55,7 +55,7 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
   - `busy` ("Too many messages at once"): OpenAI's rate limit after retries. It's per org, so every user shares it.
   - `retry` ("Something went wrong… try again in a minute"): a 400 (we built a bad request) and any bug in our code.
 
-  OpenAI isn't named and the credit state never leaks (user call, 10-18). The client picks its own text from `kind`; `message` is there for older clients, which show it as is. Logged as `[sol_error] kind=… cause: HTTP …` (OpenAI's body included) or `[turn_error]` with the traceback. Without the traceback a missing migration once failed every lookup and nothing reached the logs.
+  OpenAI isn't named and the credit state never leaks (user call, 10-18), but `code` is the native HTTP status (OpenAI's 401/429/5xx/400, or 500 for our bug; null for a timeout or a broken response) and the client shows it as `[Error 429]`, so a user's report still pins the cause (user call, 10-19). The client picks its own text from `kind`; `message` is there for older clients, which show it as is. Logged as `[sol_error] kind=… cause: HTTP …` (OpenAI's body included) or `[turn_error]` with the traceback. Without the traceback a missing migration once failed every lookup and nothing reached the logs.
 - **A failed turn gives its free message back** (`db.refund_free_message`, never below 0), a resume included, since its charge was taken on the parked request. Silent: the client just refreshes the counter. A cancel (Esc, disconnect) is *not* refunded (user call, 10-18): the pipeline task is cancelled and the message stays used. Neither is a turn parked for research and never resumed.
 - **Admin auth fails closed:** with no `ADMIN_PASSWORD`, nobody gets in.
 

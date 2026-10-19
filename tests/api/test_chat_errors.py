@@ -35,16 +35,16 @@ def events(resp) -> list[dict]:
     return [json.loads(line[6:]) for line in resp.text.splitlines() if line.startswith("data: ")]
 
 
-@pytest.mark.parametrize("exc, kind", [
-    (SolError("down", "quota", "HTTP 429: insufficient_quota"), "down"),
-    (SolError("busy", "rate_limit", "HTTP 429"), "busy"),
-    (KeyError("a bug"), "retry"),
+@pytest.mark.parametrize("exc, kind, code", [
+    (SolError("down", "quota", "HTTP 429: insufficient_quota", 429), "down", 429),
+    (SolError("down", "timeout", "ReadTimeout"), "down", None),
+    (KeyError("a bug"), "retry", 500),
 ])
-def test_error_refunds_and_hides_the_cause(client, exc, kind) -> None:
+def test_error_refunds_and_hides_the_cause(client, exc, kind, code) -> None:
     c, refund = client
     with patch.object(chat, "respond", new=AsyncMock(side_effect=exc)):
         evs = events(c.post("/v3/chat", json={"message": "hi"}))
-    assert evs[-1] == {"type": "error", "kind": kind, "message": chat.ERROR_TEXT[kind]}, evs
+    assert evs[-1] == {"type": "error", "kind": kind, "code": code, "message": chat.ERROR_TEXT[kind]}, evs
     refund.assert_awaited_once_with("u1")
 
 

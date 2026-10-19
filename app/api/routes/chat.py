@@ -22,7 +22,8 @@ log = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Older clients show `message` as is; newer ones pick their own text from `kind` (README: Errors).
+# Older clients show `message` as is; newer ones pick their own text from `kind` and show
+# `code`, the HTTP status behind it (README: Errors).
 ERROR_TEXT = {
     "down": "Conductor is down right now. Please try again later.",
     "busy": "Too many messages at once. Please wait a minute and try again.",
@@ -81,11 +82,11 @@ async def chat(request: Request, req: ChatRequest, user: asyncpg.Record = Depend
                 await queue.put(("result", result))
             except SolError as e:
                 log.warning("[sol_error] kind=%s %s", e.kind, e)
-                await queue.put(("error", e.kind))
+                await queue.put(("error", (e.kind, e.status)))
             except Exception as e:
                 # The client never sees the exception; the traceback is only here.
                 log.exception("[turn_error] pipeline raised %s", type(e).__name__)
-                await queue.put(("error", "retry"))
+                await queue.put(("error", ("retry", 500)))
 
         turn_started = time.monotonic()
         task = asyncio.create_task(run())
@@ -102,7 +103,8 @@ async def chat(request: Request, req: ChatRequest, user: asyncpg.Record = Depend
                         await db.refund_free_message(user["id"])
                     except Exception:
                         log.exception("[refund_failed] user=%s", user["id"])
-                    yield sse({"type": "error", "kind": payload, "message": ERROR_TEXT[payload]})
+                    err_kind, code = payload
+                    yield sse({"type": "error", "kind": err_kind, "code": code, "message": ERROR_TEXT[err_kind]})
                     return
                 else:  # "result"
                     result = payload

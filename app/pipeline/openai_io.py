@@ -31,18 +31,19 @@ _STASH: contextvars.ContextVar[dict | None] = contextvars.ContextVar("sol_stash"
 
 
 class Retryable(Exception):
-    def __init__(self, msg: str, kind: str = "retry", cause: str = "bad_response"):
+    def __init__(self, msg: str, kind: str = "retry", cause: str = "bad_response", status: int | None = None):
         super().__init__(msg)
-        self.kind, self.cause = kind, cause
+        self.kind, self.cause, self.status = kind, cause, status
 
 
 class SolError(Exception):
     """An OpenAI call that failed for good. `kind` picks what the user is told
-    (down | busy | retry); `cause` is for the log only. app/api/README.md: Errors."""
+    (down | busy | retry); `status` is OpenAI's HTTP status, shown as the error code; `cause`
+    is for the log only. app/api/README.md: Errors."""
 
-    def __init__(self, kind: str, cause: str, detail: str):
+    def __init__(self, kind: str, cause: str, detail: str, status: int | None = None):
         super().__init__(f"{cause}: {detail}")
-        self.kind, self.cause = kind, cause
+        self.kind, self.cause, self.status = kind, cause, status
 
 
 def _tools(ts: list[dict]) -> list[dict]:
@@ -137,15 +138,15 @@ async def post(body: dict) -> dict:
             r = await _client.post(URL, json=body, headers=headers)
             detail = f"HTTP {r.status_code}: {' '.join(r.text.split())[:300]}"  # one log line
             if r.status_code == 429 and "insufficient_quota" in r.text:
-                raise SolError("down", "quota", detail)  # out of credit: retrying can't help
+                raise SolError("down", "quota", detail, 429)  # out of credit: retrying can't help
             if r.status_code == 429:
-                raise Retryable(detail, "busy", "rate_limit")
+                raise Retryable(detail, "busy", "rate_limit", 429)
             if r.status_code >= 500:
-                raise Retryable(detail, "down", "outage")
+                raise Retryable(detail, "down", "outage", r.status_code)
             if r.status_code in (401, 403):
-                raise SolError("down", "auth", detail)
+                raise SolError("down", "auth", detail, r.status_code)
             if r.status_code >= 400:
-                raise SolError("retry", "bad_request", detail)
+                raise SolError("retry", "bad_request", detail, r.status_code)
             j = r.json()
             if j.get("error"):
                 raise Retryable(str(j["error"])[:300])
@@ -154,7 +155,7 @@ async def post(body: dict) -> dict:
         except (Retryable, httpx.TransportError) as e:  # TransportError includes timeouts
             if delay is None:
                 if isinstance(e, Retryable):
-                    raise SolError(e.kind, e.cause, str(e)) from e
+                    raise SolError(e.kind, e.cause, str(e), e.status) from e
                 raise SolError("down", "timeout" if isinstance(e, httpx.TimeoutException) else "network",
                                f"{type(e).__name__}: {e}") from e
             log.warning("[sol_retry] attempt %d: %s: %s", attempt + 1, type(e).__name__, str(e)[:200])
