@@ -14,8 +14,8 @@ async def _now(result: dict) -> dict:
 
 
 async def _no_plugin_reader(inp: dict) -> dict:
-    """The client runs the read; until the turn parks for it, there's nothing to read with.
-    The battery swaps in the scenario's values."""
+    """The client runs the read: a read call parks the turn and its result comes back on the
+    resume (dispatch). Reaching this means it wasn't parked."""
     return {"error": f"couldn't read {inp.get('plugin')!r} -- say you can't see its exact settings"}
 
 

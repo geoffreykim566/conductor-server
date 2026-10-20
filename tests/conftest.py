@@ -5,12 +5,18 @@ Test modules import the builders with `from conftest import ...` (tests/ is on
 sys.path under pytest's default import mode; keep this the only conftest.py)."""
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi.testclient import TestClient
 
 from app import pipeline, tools
+from app.api.deps import current_user
+from app.api.main import app
+from app.api.routes import chat
+from app.core.ratelimit import limiter
 from app.pipeline import executors, model_io, settings
 
 # --- model response builders -------------------------------------------------
@@ -113,3 +119,28 @@ def run(model, research):
             result = await pipeline.respond(messages or [{"role": "user", "content": "test"}], **kwargs)
         return result, calls
     return _run
+
+
+# --- /v3/chat ----------------------------------------------------------------
+
+API_USER = {"id": "u1", "free_limit": 50, "free_used": 3}
+
+
+@pytest.fixture
+def client():
+    """(TestClient, refund mock) for /v3/chat with auth, budget, the free-message claim and
+    the event insert stubbed; patch chat.respond for the turn itself."""
+    app.dependency_overrides[current_user] = lambda: API_USER
+    limiter.enabled = False
+    with patch.object(chat.budget, "over_daily_budget", new=AsyncMock(return_value=False)), \
+            patch.object(chat.db, "claim_free_message", new=AsyncMock(return_value=API_USER)), \
+            patch.object(chat.db, "refund_free_message", new=AsyncMock()) as refund, \
+            patch.object(chat.db, "insert_event", new=AsyncMock(return_value="e1")):
+        yield TestClient(app), refund
+    app.dependency_overrides.clear()
+    limiter.enabled = True
+
+
+def events(resp) -> list[dict]:
+    """The SSE events of a /v3/chat response."""
+    return [json.loads(line[6:]) for line in resp.text.splitlines() if line.startswith("data: ")]

@@ -12,6 +12,15 @@ RESEARCH_DECLINED = {
     )
 }
 
+# In place of a read_plugin_values call the user declined.
+PLUGIN_READ_DECLINED = {
+    "error": (
+        "The user declined opening the plug-in to read its values. Do not call "
+        "read_plugin_values again this turn. Answer without its exact settings: say you "
+        "can't see them, and don't estimate them from knob positions or the screenshot."
+    )
+}
+
 TOOL_NUDGE = (
     "Call a tool before you answer: the action the user just agreed to (each turn gets its own "
     "card, so queue it again even if an earlier reply offered it), or ask_clarifying_question "

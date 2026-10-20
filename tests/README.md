@@ -7,7 +7,7 @@ or web-search APIs, and no test needs the database.
 
 | Path | What |
 |---|---|
-| `conftest.py` | Shared fakes: response builders, route helpers, the `model` / `research` / `run` fixtures |
+| `conftest.py` | Shared fakes: response builders, route helpers, the `model` / `research` / `run` fixtures, the `/v3/chat` `client` |
 | `api/` | Request validation (`app.api.schemas`) |
 | `core/` | Budget breaker, rate-limit keying, ID signing (`app.core`) |
 | `pipeline/` | One turn end to end through `pipeline.respond()`, plus its helpers, one concern per file |

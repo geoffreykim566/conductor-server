@@ -21,7 +21,3 @@ EARLY_EXIT_ON_ACTION = True
 
 # Steps one card may hold.
 MAX_ATTACHES_PER_TURN = 6
-
-# Offer read_plugin_values to Sol. Off until the client can run the read (plugin-values-log
-# step 3); the battery turns it on.
-PLUGIN_READS = False

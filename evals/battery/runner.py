@@ -12,25 +12,40 @@ import os
 import sys
 import time
 from pathlib import Path
-from unittest.mock import patch
 
 from app.core import config, db
-from app.pipeline import executors, respond, settings
+from app.pipeline import respond
 from evals.battery.grader import action_calls, actual_outcome, grade
 
 SCENARIOS_DIR = Path(__file__).parents[1] / "scenarios"
-# read_plugin_values runs on the client; the battery answers from the turn's `plugin_reads`.
-settings.PLUGIN_READS = True
+# Reads a turn may park for before the runner gives up (Sol reads one plug-in per call).
+MAX_PLUGIN_READS_PER_TURN = 3
 
 
-def _fake_reader(reads: dict):
-    async def read(inp: dict, fixture) -> dict:
-        name = str(inp.get("plugin") or "").lower()
-        for plugin, values in reads.items():
-            if plugin.lower() == name:
-                return {"plugin": plugin, "values": values}
-        return {"error": f"{inp.get('plugin')!r} isn't on that track"}
-    return read
+def _client_read(reads: dict, pending: dict) -> dict:
+    """What the client would send back for a parked read: the turn's `plugin_reads` entry."""
+    name = str(pending.get("plugin") or "").lower()
+    for plugin, values in reads.items():
+        if plugin.lower() == name:
+            return {"plugin": plugin, "values": values}
+    return {"error": f"{pending.get('plugin')!r} isn't on the selected track"}
+
+
+async def respond_as_client(messages: list[dict], turn: dict, **kwargs):
+    """respond() the way the client drives it: a turn parked at read_plugin_values is resumed
+    with the turn's `plugin_reads`, through the real park/resume path. Usage is summed."""
+    result = await respond(messages, plugin_reads=True, **kwargs)
+    usage = list(result.usage)
+    for _ in range(MAX_PLUGIN_READS_PER_TURN):
+        if result.pending_plugin_read is None:
+            break
+        print(f"  [plugin read parked: {result.pending_plugin_read}]")
+        result = await respond(result.messages, plugin_reads=True, resume="allow_plugin_read",
+                               plugin_values=_client_read(turn.get("plugin_reads") or {}, result.pending_plugin_read),
+                               **kwargs)
+        usage.extend(result.usage)
+    result.usage = usage
+    return result
 
 
 SETS = {"core": ["core.json"], "extended": ["extended.json"], "all": ["core.json", "extended.json"]}
@@ -61,9 +76,7 @@ async def run_scenario(scenario: dict) -> dict:
         # ax_fixture: curated key/values for the toggle gate. ax_state: a real client AX dump.
         ax_state = turn.get("ax_state")
 
-        reader = _fake_reader(turn.get("plugin_reads") or {})
-        with patch.dict(executors.EXECUTORS, {"read_plugin_values": reader}):
-            result = await respond(messages, ax_fixture=ax_fixture, ax_state=ax_state)
+        result = await respond_as_client(messages, turn, ax_fixture=ax_fixture, ax_state=ax_state)
         messages = result.messages
         trace = result.trace  # graded against the scenario's top-level 'expect' below
         auto_run = getattr(result, "auto_run", None)

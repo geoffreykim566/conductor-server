@@ -25,6 +25,9 @@ MAX_SCREENSHOT_CHARS = 2 * 1024 * 1024
 MAX_SCREENSHOTS = 4
 # The client's AX dump caps itself near 12k chars.
 MAX_AX_STATE_CHARS = 32 * 1024
+# A plug-in's Controls-view rows; Channel EQ has 26.
+MAX_PLUGIN_VALUE_ROWS = 100
+MAX_PLUGIN_VALUES_CHARS = 8_000
 
 
 class ChatRequest(BaseModel):
@@ -37,9 +40,35 @@ class ChatRequest(BaseModel):
     ax_state: str | None = Field(None, max_length=MAX_AX_STATE_CHARS)
     # v0.3.2+: ask before web research runs (the stream ends in "research_prompt").
     research_confirm: bool = False
-    # Second half of a parked research turn: `history` is the parked transcript and
-    # `message` is ignored. Not charged a second free message.
-    resume: Literal["allow_research", "deny_research"] | None = None
+    # v0.4.2+: the client can read a plug-in, so Sol is offered read_plugin_values (the
+    # stream ends in "plugin_read_prompt").
+    plugin_reads: bool = False
+    # Second half of a parked research or plug-in-read turn: `history` is the parked
+    # transcript and `message` is ignored. Not charged a second free message.
+    resume: Literal["allow_research", "deny_research", "allow_plugin_read", "deny_plugin_read"] | None = None
+    # With resume="allow_plugin_read": what the client read, {plugin, track, values: {label: readout}}
+    # or {error}. It becomes the parked call's tool_result.
+    plugin_values: dict | None = None
+
+    @field_validator("plugin_values")
+    @classmethod
+    def _validate_plugin_values(cls, pv: dict | None) -> dict | None:
+        if pv is None:
+            return pv
+        if set(pv) - {"plugin", "track", "values", "error"}:
+            raise ValueError("unexpected keys in plugin_values")
+        for k in ("plugin", "track", "error"):
+            if pv.get(k) is not None and not isinstance(pv[k], str):
+                raise ValueError(f"invalid plugin_values.{k}")
+        values = pv.get("values")
+        if values is not None:
+            if not isinstance(values, dict) or len(values) > MAX_PLUGIN_VALUE_ROWS:
+                raise ValueError("invalid plugin_values.values")
+            if not all(isinstance(k, str) and isinstance(v, str) for k, v in values.items()):
+                raise ValueError("plugin_values.values must map strings to strings")
+        if len(json.dumps(pv)) > MAX_PLUGIN_VALUES_CHARS:
+            raise ValueError("plugin_values too large")
+        return pv
 
     @field_validator("screenshots")
     @classmethod

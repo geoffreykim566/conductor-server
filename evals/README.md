@@ -51,7 +51,7 @@ Compare against a baseline run of the same scenarios, never against memory. Run 
 | `first_tool` | name, or a list of acceptable names |
 | anything else | compared for equality against the outcome: `no_tool_calls`, `web_research_called`, `plugin_read_called`, `confidence_tier`, `sources_present`, `auto_run` |
 
-A turn's `plugin_reads` (`{plugin: {control: value}}`) is what `read_plugin_values` returns in the battery; the runner turns the tool on.
+The runner drives turns like the client: the tool is offered, and a turn parked at `read_plugin_values` is resumed with the turn's `plugin_reads` (`{plugin: {control: value}}`), through the real park/resume path.
 
 A top-level `expect` grades the final turn. A per-turn `expect` grades that turn's own trace.
 

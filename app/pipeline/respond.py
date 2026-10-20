@@ -93,15 +93,25 @@ async def run_turn(
     ax_state: str | None = None,
     research_confirm: bool = False,
     resume: str | None = None,
+    plugin_reads: bool = False,
+    plugin_values: dict | None = None,
 ) -> Result:
     """research_confirm: park the turn (Result.pending_research_query) instead of
-    running web_research, so the client can ask the user. resume: "allow_research"
-    or "deny_research"; `messages` is then the parked transcript and this call
-    executes its pending tool calls first (README: Research approval)."""
+    running web_research, so the client can ask the user. plugin_reads: offer
+    read_plugin_values; a call to it always parks (Result.pending_plugin_read), since
+    only the client can read. resume: "allow_research" / "deny_research" /
+    "allow_plugin_read" (with plugin_values) / "deny_plugin_read"; `messages` is then the
+    parked transcript and this call executes its pending tool calls first (README:
+    Research approval, Plug-in reads)."""
     msgs = list(messages)
     parked: list | None = None
     research_authorized = resume == "allow_research"
     research_denied = resume == "deny_research"
+    reads_denied = resume == "deny_plugin_read"
+    # The parked read's result; a denied turn declines every read call.
+    plugin_read = (dict(notes.PLUGIN_READ_DECLINED) if reads_denied
+                   else (plugin_values or {"error": "the read returned nothing"}) if resume == "allow_plugin_read"
+                   else None)
     if resume:
         # `messages` must end at this turn's user message, as on a fresh call.
         turn_start = last_user_text_index(msgs)
@@ -114,7 +124,7 @@ async def run_turn(
     tools.TURN_USER_TEXT.set(last_user_text(messages))
     tools.TURN_OFFERED_TEXT.set(offered_text(messages))
 
-    ctx = TurnContext.build(msgs, screenshots_b64, ax_fixture, ax_state)
+    ctx = TurnContext.build(msgs, screenshots_b64, ax_fixture, ax_state, plugin_reads)
     usage: list[dict] = []
     state = restore_turn_state(msgs[len(messages):-1]) if resume else TurnState()
     force_first = force_first_call(messages)
@@ -159,7 +169,8 @@ async def run_turn(
             msgs.append({"role": "assistant", "content": model_io.serialize_content(resp.content)})
         # Park before executing ANY of this batch, so every tool_use still gets
         # exactly one tool_result when the client resumes.
-        if research_confirm and not research_authorized and not research_denied:
+        resumed_batch = i == 0 and parked
+        if research_confirm and not research_authorized and not research_denied and not resumed_batch:
             pending = [tu for tu in tool_uses if tu.name == "web_research"]
             if pending:
                 log.warning("[research_prompt] parking turn for user approval, query=%r", pending[0].input.get("query"))
@@ -167,12 +178,22 @@ async def run_turn(
                     text="", walkthrough_steps=None, trace=state.trace, messages=msgs, usage=usage,
                     confidence_tier="generic", pending_research_query=str(pending[0].input.get("query", "")),
                 )
+        if plugin_reads and not reads_denied and not resumed_batch:
+            pending = [tu for tu in tool_uses if tu.name == "read_plugin_values"]
+            if pending:
+                log.warning("[plugin_read_prompt] parking turn for a plug-in read, input=%r", pending[0].input)
+                return Result(
+                    text="", walkthrough_steps=None, trace=state.trace, messages=msgs, usage=usage,
+                    confidence_tier="generic", pending_plugin_read=dict(pending[0].input),
+                )
         if on_status:
             status_text = status_for_tools(tool_uses)
             if status_text:
                 await on_status(status_text)
+        # The parked batch gets the client's read; later read calls park again (one read per ask).
+        read_result = plugin_read if (resumed_batch or reads_denied) else None
         tool_results = [
-            await handle_tool_use(tu, state, ax_fixture, research_denied, usage) for tu in tool_uses
+            await handle_tool_use(tu, state, ax_fixture, research_denied, usage, read_result) for tu in tool_uses
         ]
         msgs.append({"role": "user", "content": tool_results})
         # "Press Run to set X" beside a refused X would contradict the next call's reply.

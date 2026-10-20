@@ -12,7 +12,7 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 | `routes/me.py` | `GET/PUT/DELETE /v3/me`: free-message count, profile, uninstall marker |
 | `routes/ratings.py` | `POST /v3/ratings`: thumbs on a reply's event |
 | `schemas.py` | `ChatRequest` and its limits; the history shape whitelist |
-| `history.py` | Trimming round-tripped history; spotting a parked research turn |
+| `history.py` | Trimming round-tripped history; spotting a parked research or plug-in-read turn |
 | `middleware.py` | Body-size cap (before validation); 422 logging |
 | `sse.py` | SSE framing |
 | `deps.py` | `current_user`: verifies the `X-Conductor-Id` header (the only auth) |
@@ -26,7 +26,9 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 - `screenshots`: base64, this turn only
 - `ax_state`: AX text, this turn only
 - `research_confirm`
-- `resume`
+- `plugin_reads`: the client can read a plug-in (v0.4.2+), so Sol is offered `read_plugin_values`
+- `resume`: `allow_research` | `deny_research` | `allow_plugin_read` | `deny_plugin_read`
+- `plugin_values`: with `allow_plugin_read`, what the client read (`{plugin, track, values}` or `{error}`; shape and size checked in `schemas.py`)
 
 **Events, in order:**
 - `status` (zero or more)
@@ -34,12 +36,13 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 - then exactly one of:
   - `done`: `event_id`, `remaining`, `sources`, `walkthrough_steps`, `auto_run`, `history`
   - `research_prompt`: `query`, `history`
+  - `plugin_read_prompt`: `plugin`, `track`, `history`
   - `error`: `kind` (`down` | `busy` | `retry`), `code` (the HTTP status behind it, or null) and `message`, the fixed text for the kind (Errors, below)
 
 **Order of checks:**
 1. The budget breaker returns 503.
 2. A free message is claimed (402 at the limit), *before* any model call, failing closed.
-3. A `resume` isn't charged again. It's checked for a parked `web_research` shape, else 422.
+3. A `resume` isn't charged again. It's checked for the matching parked call (`web_research` or `read_plugin_values`), else 422.
 
 ## Quirks & why
 

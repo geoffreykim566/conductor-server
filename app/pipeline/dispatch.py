@@ -9,8 +9,11 @@ from app.pipeline.executors import EXECUTORS
 from app.pipeline.turn_state import TurnState
 
 
-async def _execute(tu, state: TurnState, ax_fixture: dict | None, research_denied: bool) -> dict:
+async def _execute(tu, state: TurnState, ax_fixture: dict | None, research_denied: bool,
+                   plugin_read: dict | None) -> dict:
     name, inp = tu.name, tu.input
+    if name == "read_plugin_values" and plugin_read is not None:
+        return dict(plugin_read)
     if name in tools.ACTION_TOOLS and attach_key(name, inp) in state.attach_keys:
         return {"attached": False, "reason": notes.DUPLICATE_ATTACH_REFUSAL}
     if name == "open_setting" and endorse_key(name, inp) in state.route_spans:
@@ -35,9 +38,10 @@ async def _execute(tu, state: TurnState, ax_fixture: dict | None, research_denie
 
 
 async def handle_tool_use(tu, state: TurnState, ax_fixture: dict | None,
-                          research_denied: bool, usage: list[dict]) -> dict:
-    """Run one tool call, record it on the state, and return its tool_result block."""
-    result = await _execute(tu, state, ax_fixture, research_denied)
+                          research_denied: bool, usage: list[dict], plugin_read: dict | None = None) -> dict:
+    """Run one tool call, record it on the state, and return its tool_result block.
+    `plugin_read`: a read_plugin_values call's result, supplied by the client on resume."""
+    result = await _execute(tu, state, ax_fixture, research_denied, plugin_read)
     # web_research reports its own API spend; count it, never show it to the model.
     call_usage = result.pop("_usage", None) if isinstance(result, dict) else None
     if call_usage:

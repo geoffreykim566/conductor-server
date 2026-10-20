@@ -91,7 +91,6 @@ Every iteration's text is kept, with two exceptions found when Sol's text went t
 History keeps both copies; only the reply drops them.
 
 ### Tunables
-- `PLUGIN_READS` (off): offers `read_plugin_values` to Sol. On once the client can run the read; the battery runner turns it on.
 - `DECIDER_EFFORT` is medium: the same graded quality as high, ~1 s faster median, ~7% cheaper. Low was no faster and failed more.
 
 ### Heuristics phrase lists
@@ -131,6 +130,12 @@ If the user asks to see something again and the model answers from memory with n
 - With `research_confirm`, a `web_research` call parks the turn *before any tool in that batch runs*. The client then resumes with the whole batch, so every `tool_use` gets exactly one `tool_result`.
 - On resume, `turn_state.restore_turn_state` replays the parked tail, so an earlier attach survives.
 - On deny, the call gets `RESEARCH_DECLINED` in place of a result.
+
+### Plug-in reads
+- `read_plugin_values` is offered only when the request says `plugin_reads` (v0.4.2+). v0.4.1 can't answer a park, so it never sees the tool.
+- A read call **always parks** (`Result.pending_plugin_read`), before any tool in its batch runs, like research. There's no server executor: the client opens the plug-in, reads its Controls view and resumes with `allow_plugin_read` + `plugin_values`, which become the call's `tool_result`. `deny_plugin_read` answers it, and any later read that turn, with `PLUGIN_READ_DECLINED`.
+- Each read asks: a second read in the same turn (another plug-in) parks again. Research approval is per turn; a read opens a window in the user's session, so it's per read.
+- The client asks "Conductor wants to open X to read its values." and skips the ask when auto-run is on (user call, 10-19).
 
 ## Adding things
 

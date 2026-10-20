@@ -1,21 +1,33 @@
-"""Shaping the round-tripped history: trimming it, and spotting a parked research turn."""
+"""Shaping the round-tripped history: trimming it, and spotting a parked research or plug-in-read turn."""
 from app.core.config import MAX_HISTORY_MESSAGES
 
 
-def pending_research_query(history: list[dict] | None) -> str | None:
-    """The web_research query a parked transcript is waiting on, or None if
-    `history` isn't shaped like one (must end in an assistant message whose
-    tool_use blocks include web_research, with no results after it)."""
+def _pending_call(history: list[dict] | None, name: str) -> dict | None:
+    """Input of the `name` call a parked transcript is waiting on, or None if `history`
+    doesn't end in an assistant message with that tool_use (and no results after it)."""
     if not history:
         return None
     last = history[-1]
     if last.get("role") != "assistant" or not isinstance(last.get("content"), list):
         return None
     for b in last["content"]:
-        if isinstance(b, dict) and b.get("type") == "tool_use" and b.get("name") == "web_research":
-            q = (b.get("input") or {}).get("query")
-            return q if isinstance(q, str) else ""
+        if isinstance(b, dict) and b.get("type") == "tool_use" and b.get("name") == name:
+            return b.get("input") if isinstance(b.get("input"), dict) else {}
     return None
+
+
+def pending_research_query(history: list[dict] | None) -> str | None:
+    """The web_research query a parked transcript is waiting on, or None."""
+    call = _pending_call(history, "web_research")
+    if call is None:
+        return None
+    q = call.get("query")
+    return q if isinstance(q, str) else ""
+
+
+def pending_plugin_read(history: list[dict] | None) -> dict | None:
+    """The read_plugin_values call ({plugin, track?}) a parked transcript is waiting on, or None."""
+    return _pending_call(history, "read_plugin_values")
 
 
 def trim_history(messages: list[dict]) -> list[dict]:

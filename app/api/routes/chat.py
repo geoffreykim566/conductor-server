@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app.api.deps import current_user
-from app.api.history import pending_research_query, trim_history
+from app.api.history import pending_plugin_read, pending_research_query, trim_history
 from app.api.schemas import ChatRequest
 from app.api.sse import sse
 from app.core import budget, db
@@ -42,8 +42,10 @@ async def chat(request: Request, req: ChatRequest, user: asyncpg.Record = Depend
         )
     if req.resume:
         # Resume: check the parked shape, don't charge again (README: Research approval).
-        if pending_research_query(req.history) is None:
-            log.warning("[resume_422] resume=%s with no pending web_research in history", req.resume)
+        parked = (pending_plugin_read(req.history) if req.resume.endswith("plugin_read")
+                  else pending_research_query(req.history))
+        if parked is None:
+            log.warning("[resume_422] resume=%s with no matching pending call in history", req.resume)
             raise HTTPException(
                 status_code=422,
                 detail={"error": "no_pending_research", "message": "Nothing to resume."},
@@ -78,6 +80,7 @@ async def chat(request: Request, req: ChatRequest, user: asyncpg.Record = Depend
                     messages, screenshots_b64=req.screenshots, ax_state=req.ax_state,
                     on_chunk=on_chunk, on_status=on_status,
                     research_confirm=req.research_confirm, resume=req.resume,
+                    plugin_reads=req.plugin_reads, plugin_values=req.plugin_values,
                 )
                 await queue.put(("result", result))
             except SolError as e:
@@ -123,6 +126,14 @@ async def chat(request: Request, req: ChatRequest, user: asyncpg.Record = Depend
                         yield sse({
                             "type": "research_prompt",
                             "query": result.pending_research_query,
+                            "history": result.messages,
+                        })
+                        return
+                    if result.pending_plugin_read is not None:
+                        yield sse({
+                            "type": "plugin_read_prompt",
+                            "plugin": result.pending_plugin_read.get("plugin", ""),
+                            "track": result.pending_plugin_read.get("track"),
                             "history": result.messages,
                         })
                         return

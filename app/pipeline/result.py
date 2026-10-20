@@ -13,5 +13,7 @@ class Result:
     # Set on a turn parked for research approval; `messages` then ends in the
     # pending tool_use, for the client to hand back with resume=...
     pending_research_query: str | None = None
+    # Set on a turn parked at read_plugin_values: {plugin, track?}, the same way.
+    pending_plugin_read: dict | None = None
     sources: list[dict] = field(default_factory=list)  # web_research citations
     auto_run: bool = False  # card may run without Run (client setting permitting)
