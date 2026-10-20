@@ -13,12 +13,19 @@ async def _now(result: dict) -> dict:
     return result
 
 
+async def _no_plugin_reader(inp: dict) -> dict:
+    """The client runs the read; until the turn parks for it, there's nothing to read with.
+    The battery swaps in the scenario's values."""
+    return {"error": f"couldn't read {inp.get('plugin')!r} -- say you can't see its exact settings"}
+
+
 EXECUTORS = {
     "open_plugin": lambda inp, fixture: _now(tools.queue_open_plugin(inp)),
     "set_param": lambda inp, fixture: _now(tools.queue_set_param(inp)),
     "open_setting": lambda inp, fixture: _now(tools.queue_open_setting(inp, fixture)),
     "ask_clarifying_question": lambda inp, fixture: _ack_clarifying_question(),
     "web_research": lambda inp, fixture: research.web_research(inp["query"]),
+    "read_plugin_values": lambda inp, fixture: _no_plugin_reader(inp),
 }
 
 # Only the one real wait gets a status; everything else is instant and would just flash.

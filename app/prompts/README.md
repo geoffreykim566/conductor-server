@@ -12,6 +12,7 @@ The decider's system prompt: one string constant, re-exported by `__init__.py`.
 - **Prompt-only rules are requests, not guarantees.** If something must hold every time (a cap, a refusal, the undo decline), enforce it in `pipeline/` code and keep the prompt line as guidance only. Prompt-only versions have held roughly 40–50% of the time.
 - **Live AX state is authoritative only for what it lists; the screenshot is evidence for the rest.** Calling AX "ground truth that outranks screenshots" made the model defer to an incomplete dump and say it couldn't see the screen.
 - **Keep the prompt byte-identical across turns.** Anything per-turn goes in its own system block (`pipeline/context.py`) so the prefix still caches.
+- **Plug-in settings (10-19):** a `position=` is knob travel, never a setting; when an answer depends on a value the live state doesn't give in real units, Sol calls `read_plugin_values`. From the 10-12 Compressor reply that quoted raw slider numbers and read Attack off the knob image.
 - **Logic facts:** add one when a miss repeats, worded as a plain fact, not a symptom match.
 
 ## Changing a prompt

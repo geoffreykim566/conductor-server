@@ -2,14 +2,14 @@
 
 The decider's tools: their schemas (`TOOLS`) and executors. There are two kinds:
 
-- **Knowledge:** `web_research` (executor in `app/research/`) and `ask_clarifying_question` (carries the question).
+- **Knowledge:** `web_research` (executor in `app/research/`), `read_plugin_values` (the client reads the plug-in; offered only when `settings.PLUGIN_READS` is on) and `ask_clarifying_question` (carries the question).
 - **Actions:** `open_plugin`, `set_param`, `open_setting`. These don't *do* anything server-side. They validate and emit wire steps that the client runs when the user presses Run.
 
 ## Files
 
 | File | What |
 |---|---|
-| `schemas.py` | The five tool definitions sent to Sol, with `answer` / `remaining_actions` on the actions (why: `pipeline/README.md`, Sol decider); `TOOLS`, `ACTION_TOOLS`, `SOL_ONLY_ARGS` |
+| `schemas.py` | The six tool definitions sent to Sol, with `answer` / `remaining_actions` on the actions (why: `pipeline/README.md`, Sol decider); `TOOLS`, `ACTION_TOOLS`, `SOL_ONLY_ARGS` |
 | `actions.py` | Executors for the three action tools |
 | `choices.py` | Dropdown routes: match a value to an option, check the user named it |
 | `routes.py` | Loads `seed/routes.json`: runnable `ROUTES`, `REFERENCES`; a route's path as text and how it's described to the model |
@@ -27,6 +27,7 @@ The decider's tools: their schemas (`TOOLS`) and executors. There are two kinds:
 - **Routes are the only way to navigate.** The model names a route; the path that runs is always `seed/routes.json`'s. Model-written menu paths have been confidently wrong more than anything else in this codebase.
 - **`ask_clarifying_question` requires the question text.** Called with no text, the old writer had nothing to phrase and invented an answer; now the question is the reply (`pipeline/reply.py`).
 - **open_setting's description lists each route's path, plus the reference locations** the model may state but not queue.
+- **`read_plugin_values` is for answers, not edits.** Sol calls it when its answer depends on a setting the live state shows only as knob travel (`position=`) or not at all (window closed). Edits don't need it: a named value is queued as is. It's gated off (`PLUGIN_READS`) until the client runs the read and the turn parks for it like research (`plugin-values-log.md`). Battery 10-19: 30/30 on the targeted `pv_*` scenarios.
 - **No MCP.** One client and one server, both ours: it would add per-call overhead for no interop benefit.
 - **The toggle gate:** a route with `toggle_ax_key` is refused when live state says it's already in its target state, because running it would flip it *away*.
 

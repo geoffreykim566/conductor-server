@@ -71,6 +71,33 @@ WEB_RESEARCH_SCHEMA = {
     },
 }
 
+# The client runs the read (opens the plug-in, Controls view); the user approves it like
+# research unless auto-run is on. Only for answers that depend on a value: edits don't need it.
+READ_PLUGIN_VALUES_SCHEMA = {
+    "name": "read_plugin_values",
+    "description": (
+        "Read the current settings of a plugin on a track: Conductor opens its window if needed and "
+        "reads every control's value in its own unit (dB, ms, Hz, %, ratio). The user may be asked "
+        "first and can decline. Call it only when your answer depends on a setting the live state "
+        "doesn't list in its own unit -- it shows only position= (knob travel), or the plugin's "
+        "window isn't open. Not for explaining what a control does, general advice, or queuing a "
+        "change to a value the user named."
+    ),
+    "strict": True,
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "plugin": {"type": "string", "description": "Plugin name, as for open_plugin."},
+            "track": {
+                "type": "string",
+                "description": "Track name from the live state, only when the user names or clearly means one; omit for the selected track.",
+            },
+        },
+        "required": ["plugin"],
+        "additionalProperties": False,
+    },
+}
+
 # `value` is a string parsed server-side: a number-or-on/off union wasn't held
 # by the model even under strict mode.
 OPEN_PLUGIN_SCHEMA = {
@@ -175,5 +202,5 @@ for _t in (OPEN_PLUGIN_SCHEMA, SET_PARAM_SCHEMA, OPEN_SETTING_SCHEMA):
     _s["properties"] = {**_s["properties"], "answer": ANSWER_PROP, "remaining_actions": REMAINING_ACTIONS_PROP}
     _s["required"] = [*_s["required"], *SOL_ONLY_ARGS]
 
-TOOLS = [ASK_CLARIFYING_QUESTION_SCHEMA, WEB_RESEARCH_SCHEMA,
+TOOLS = [ASK_CLARIFYING_QUESTION_SCHEMA, WEB_RESEARCH_SCHEMA, READ_PLUGIN_VALUES_SCHEMA,
          OPEN_PLUGIN_SCHEMA, SET_PARAM_SCHEMA, OPEN_SETTING_SCHEMA]

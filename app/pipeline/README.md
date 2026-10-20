@@ -91,6 +91,7 @@ Every iteration's text is kept, with two exceptions found when Sol's text went t
 History keeps both copies; only the reply drops them.
 
 ### Tunables
+- `PLUGIN_READS` (off): offers `read_plugin_values` to Sol. On once the client can run the read; the battery runner turns it on.
 - `DECIDER_EFFORT` is medium: the same graded quality as high, ~1 s faster median, ~7% cheaper. Low was no faster and failed more.
 
 ### Heuristics phrase lists

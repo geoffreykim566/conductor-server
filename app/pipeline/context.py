@@ -4,6 +4,7 @@ Caching and why screenshots never enter `msgs`: README.md (Context & caching).""
 from dataclasses import dataclass
 
 from app import tools
+from app.pipeline import settings
 from app.pipeline.transcript import last_user_text_index
 from app.prompts import SYSTEM_PROMPT
 
@@ -68,7 +69,8 @@ class TurnContext:
                     for b64 in screenshots_b64
                 ] + [{"type": "text", "text": msgs[turn_idx]["content"]}],
             }
-        return cls(system=system, tools=tools.TOOLS, live_state=live_state,
+        offered = [t for t in tools.TOOLS if settings.PLUGIN_READS or t["name"] != "read_plugin_values"]
+        return cls(system=system, tools=offered, live_state=live_state,
                    turn_idx=turn_idx, screenshot_msg=screenshot_msg)
 
     def for_call(self, base: list[dict]) -> list[dict]:

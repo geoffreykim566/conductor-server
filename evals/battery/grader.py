@@ -82,6 +82,7 @@ def actual_outcome(trace: list[dict], response_text: str = "", confidence_tier: 
         "action_calls": action_calls(trace),
         "setting_calls": setting_calls,
         "first_tool": trace[0]["tool"] if trace else None,
+        "plugin_read_called": any(c["tool"] == "read_plugin_values" for c in trace),
         "auto_run": auto_run,  # None on a build that predates it
     }
 

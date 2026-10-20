@@ -49,7 +49,9 @@ Compare against a baseline run of the same scenarios, never against memory. Run 
 | `no_completion_claims` | the reply doesn't say a queued action already happened ("is set", "I've loaded"). Substring-brittle |
 | `response_contains` / `_any` / `response_not_contains` | case-insensitive substrings of the reply |
 | `first_tool` | name, or a list of acceptable names |
-| anything else | compared for equality against the outcome: `no_tool_calls`, `web_research_called`, `confidence_tier`, `sources_present`, `auto_run` |
+| anything else | compared for equality against the outcome: `no_tool_calls`, `web_research_called`, `plugin_read_called`, `confidence_tier`, `sources_present`, `auto_run` |
+
+A turn's `plugin_reads` (`{plugin: {control: value}}`) is what `read_plugin_values` returns in the battery; the runner turns the tool on.
 
 A top-level `expect` grades the final turn. A per-turn `expect` grades that turn's own trace.
 
