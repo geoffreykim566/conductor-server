@@ -148,7 +148,9 @@ SET_PARAM_SCHEMA = {
             "plugin": {"type": "string", "description": "Plugin name, as for open_plugin."},
             "param": {
                 "type": "string",
-                "description": "The control's label as the plugin shows it (Low Cut Frequency, Threshold, Ratio, Mix).",
+                "description": ("The control's label as the plugin shows it (Low Cut Frequency, Threshold, Ratio, "
+                                "Mix), or \"Bypass\" for the whole plugin's power switch: value \"on\" bypasses "
+                                "(turns the plugin off), \"off\" turns it back on."),
             },
             "value": {
                 "type": "string",

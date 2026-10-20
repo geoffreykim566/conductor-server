@@ -1929,5 +1929,51 @@
         }
       }
     ]
+  },
+  {
+    "name": "bypass_turn_off_eq",
+    "note": "'Turn off the EQ' bypasses the whole plugin: set_param Bypass on, not a band or a read.",
+    "turns": [
+      {
+        "text": "turn off the eq on the vocal",
+        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Channel EQ'\n  - AXGroup desc='EQ'\n    - AXCheckBox desc='Low Cut' value=True\n    - AXSlider desc='Low Cut Frequency' value='80 Hz'\n    - AXSlider desc='Peak 1 Frequency' value='300 Hz'\n    - AXSlider desc='Peak 1 Gain' value='-3.0 dB'\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Channel EQ'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'"
+      }
+    ],
+    "expect": {
+      "plugin_read_called": false,
+      "action_calls": [
+        {
+          "tool": "set_param",
+          "args": {
+            "plugin": "Channel EQ",
+            "param": "Bypass",
+            "value": "on"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "bypass_turn_eq_back_on",
+    "note": "'Turn the EQ back on' un-bypasses it: set_param Bypass off.",
+    "turns": [
+      {
+        "text": "turn the eq back on",
+        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Channel EQ'\n  - AXGroup desc='EQ'\n    - AXCheckBox desc='Low Cut' value=True\n    - AXSlider desc='Low Cut Frequency' value='80 Hz'\n    - AXSlider desc='Peak 1 Frequency' value='300 Hz'\n    - AXSlider desc='Peak 1 Gain' value='-3.0 dB'\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Channel EQ'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'"
+      }
+    ],
+    "expect": {
+      "plugin_read_called": false,
+      "action_calls": [
+        {
+          "tool": "set_param",
+          "args": {
+            "plugin": "Channel EQ",
+            "param": "Bypass",
+            "value": "off"
+          }
+        }
+      ]
+    }
   }
 ]
