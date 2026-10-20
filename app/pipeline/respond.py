@@ -84,6 +84,22 @@ def _can_exit_early(tool_uses: list, tool_results: list[dict], iter_text: str, s
             and not _options_unnamed(tool_results, iter_text))
 
 
+def _read_results(tool_uses: list, plugin_read: dict | None, resumed_batch: bool, reads_denied: bool) -> list:
+    """Per call, what a read_plugin_values call gets instead of its executor. Only the first read
+    of the parked batch was asked about and read; another read in it is sent back to ask again.
+    Read calls outside the parked batch park (None here). Each read asks (README: Plug-in reads)."""
+    out, first = [], True
+    for tu in tool_uses:
+        if tu.name != "read_plugin_values" or not (resumed_batch or reads_denied):
+            out.append(None)
+        elif reads_denied or first:
+            out.append(plugin_read)
+            first = False
+        else:
+            out.append(dict(notes.PLUGIN_READ_ONE_AT_A_TIME))
+    return out
+
+
 async def run_turn(
     messages: list[dict],
     ax_fixture: dict | None = None,
@@ -190,10 +206,9 @@ async def run_turn(
             status_text = status_for_tools(tool_uses)
             if status_text:
                 await on_status(status_text)
-        # The parked batch gets the client's read; later read calls park again (one read per ask).
-        read_result = plugin_read if (resumed_batch or reads_denied) else None
         tool_results = [
-            await handle_tool_use(tu, state, ax_fixture, research_denied, usage, read_result) for tu in tool_uses
+            await handle_tool_use(tu, state, ax_fixture, research_denied, usage, r)
+            for tu, r in zip(tool_uses, _read_results(tool_uses, plugin_read, resumed_batch, reads_denied))
         ]
         msgs.append({"role": "user", "content": tool_results})
         # "Press Run to set X" beside a refused X would contradict the next call's reply.

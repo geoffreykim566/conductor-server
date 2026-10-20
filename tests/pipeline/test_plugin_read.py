@@ -77,3 +77,17 @@ def test_plugin_values_shape_is_checked() -> None:
                 {"values": {f"k{i}": "v" for i in range(101)}}, {"error": "x" * 9000}):
         with pytest.raises(ValidationError):
             ChatRequest(message="", resume="allow_plugin_read", plugin_values=bad)
+
+
+async def test_two_reads_in_one_call_get_their_own_asks(run) -> None:
+    """Only the first read of a parked batch gets the values; the other is sent back to ask again."""
+    both = resp(tool_use("read_plugin_values", {"plugin": "Compressor"}, "call_c"),
+                tool_use("read_plugin_values", {"plugin": "Channel EQ"}, "call_e"))
+    parked, _ = await run([both], messages=USER, plugin_reads=True)
+    assert parked.pending_plugin_read == {"plugin": "Compressor"}, parked.pending_plugin_read
+    eq_again = resp(tool_use("read_plugin_values", {"plugin": "Channel EQ"}, "call_e2"))
+    result, _ = await run([eq_again], messages=parked.messages, plugin_reads=True,
+                          resume="allow_plugin_read", plugin_values=VALUES)
+    outputs = {c["input"]["plugin"]: c["output"] for c in result.trace if c["tool"] == "read_plugin_values"}
+    assert outputs == {"Compressor": VALUES, "Channel EQ": notes.PLUGIN_READ_ONE_AT_A_TIME}, outputs
+    assert result.pending_plugin_read == {"plugin": "Channel EQ"}, result.pending_plugin_read
