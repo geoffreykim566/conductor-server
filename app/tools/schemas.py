@@ -152,7 +152,9 @@ SET_PARAM_SCHEMA = {
             },
             "value": {
                 "type": "string",
-                "description": "A plain number in the control's displayed unit (\"80\", \"-18\", \"4\"), or \"on\" / \"off\" for a switch.",
+                "description": ("A plain number in the control's displayed unit (\"80\", \"-18\", \"4\"); a "
+                                "signed change from its current setting (\"by -3\", \"by +2\"), applied to "
+                                "whatever it's set to when the card runs; or \"on\" / \"off\" for a switch."),
             },
             "track": {
                 "type": "string",

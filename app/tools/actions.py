@@ -23,6 +23,8 @@ _MAX_NAME = 64
 _ON = ("on", "true", "enable", "enabled", "yes")
 _OFF = ("off", "false", "disable", "disabled", "no")
 _NUMBER = re.compile(r"^\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*(?:[a-z%]+)?\s*$", re.IGNORECASE)
+# "by -3" / "by +2": a change from the current value, applied by the client when the card runs.
+_CHANGE = re.compile(r"^\s*by\s*([+-])\s*((?:\d+(?:\.\d*)?|\.\d+))\s*(?:[a-z%]+)?\s*$", re.IGNORECASE)
 
 
 def _clean_name(value, what: str) -> tuple[str | None, str | None]:
@@ -35,14 +37,18 @@ def _clean_name(value, what: str) -> tuple[str | None, str | None]:
 
 
 def _parse_param_value(value) -> str | None:
-    """'on'/'off' for a switch, else the plain number as a string ("80hz" ->
-    "80", "-18 dB" -> "-18", "4:1" is not parsed). None if it's neither --
-    the client's writers take float(value) or an on/off word, nothing else."""
+    """'on'/'off' for a switch, "by:<signed number>" for a change ("by -3 dB" -> "by:-3"),
+    else the plain number as a string ("80hz" -> "80", "-18 dB" -> "-18", "4:1" is not
+    parsed). None if it's none of those -- the client's writers take float(value), "by:"
+    or an on/off word, nothing else."""
     if isinstance(value, bool):
         return "on" if value else "off"
     if isinstance(value, (int, float)):
         return f"{value:g}"
     text = str(value or "").strip().lower()
+    change = _CHANGE.match(text)
+    if change:
+        return f"by:{float(change.group(1) + change.group(2)):g}"
     if text in _ON:
         return "on"
     if text in _OFF:
@@ -81,7 +87,8 @@ def queue_set_param(inp: dict) -> dict:
         return {
             "attached": False,
             "reason": (f"value {inp.get('value')!r} isn't a plain number or on/off -- pass the "
-                       "number in the control's displayed unit (e.g. \"80\", \"-18\") or \"on\"/\"off\""),
+                       "number in the control's displayed unit (e.g. \"80\", \"-18\"), a signed change "
+                       "(\"by -3\") or \"on\"/\"off\""),
         }
     spec = {"plugin": plugin, "param": param, "value": value}
     if inp.get("track"):

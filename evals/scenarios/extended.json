@@ -1765,7 +1765,7 @@
   },
   {
     "name": "pv_lower_threshold_real",
-    "note": "Relative edit with real values listed: compute from them (-22.5), no read. The travel-only version waits for relative set_param.",
+    "note": "Relative edit with real values listed: no read; a 'by -3' change or the computed -22.5 are both right.",
     "turns": [
       {
         "text": "lower the threshold 3 dB",
@@ -1790,11 +1790,144 @@
         {
           "tool": "set_param",
           "args": {
-            "param": "Threshold",
-            "value": "-22.5"
+            "param": "Threshold"
           }
         }
       ]
     }
+  },
+  {
+    "name": "pv_lower_threshold_travel",
+    "note": "Relative edit when only knob travel shows: a 'by -3' change, no read (the client applies it to the current value).",
+    "turns": [
+      {
+        "text": "lower the threshold 3 dB",
+        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61%\n  - AXSlider desc='Ratio' position=54%\n  - AXSlider desc='Attack' position=0%\n  - AXSlider desc='Release' position=40%\n  - AXSlider desc='Knee' position=20%\n  - AXSlider desc='Make Up' position=50%\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
+        "plugin_reads": {
+          "Compressor": {
+            "Circuit Type": "Platinum Digital",
+            "Threshold": "-19.5 dB",
+            "Ratio": "8.7:1",
+            "Attack": "0.0 ms",
+            "Release": "51.0 ms",
+            "Knee": "0.2",
+            "Make Up": "0.0 dB",
+            "Mix": "100 %"
+          }
+        }
+      }
+    ],
+    "expect": {
+      "plugin_read_called": false,
+      "action_calls": [
+        {
+          "tool": "set_param",
+          "args": {
+            "param": "Threshold",
+            "value": "by -3"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "pv_lower_again_asks",
+    "note": "The same relative change right after a card made it, with no 'more'/'again': ask before queuing it again.",
+    "turns": [
+      {
+        "text": "lower the threshold 3 dB",
+        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61%\n  - AXSlider desc='Ratio' position=54%\n  - AXSlider desc='Attack' position=0%\n  - AXSlider desc='Release' position=40%\n  - AXSlider desc='Knee' position=20%\n  - AXSlider desc='Make Up' position=50%\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
+        "plugin_reads": {
+          "Compressor": {
+            "Circuit Type": "Platinum Digital",
+            "Threshold": "-19.5 dB",
+            "Ratio": "8.7:1",
+            "Attack": "0.0 ms",
+            "Release": "51.0 ms",
+            "Knee": "0.2",
+            "Make Up": "0.0 dB",
+            "Mix": "100 %"
+          }
+        },
+        "expect": {
+          "action_calls": [
+            {
+              "tool": "set_param",
+              "args": {
+                "value": "by -3"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "text": "lower the threshold 3 dB",
+        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61%\n  - AXSlider desc='Ratio' position=54%\n  - AXSlider desc='Attack' position=0%\n  - AXSlider desc='Release' position=40%\n  - AXSlider desc='Knee' position=20%\n  - AXSlider desc='Make Up' position=50%\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
+        "plugin_reads": {
+          "Compressor": {
+            "Circuit Type": "Platinum Digital",
+            "Threshold": "-19.5 dB",
+            "Ratio": "8.7:1",
+            "Attack": "0.0 ms",
+            "Release": "51.0 ms",
+            "Knee": "0.2",
+            "Make Up": "0.0 dB",
+            "Mix": "100 %"
+          }
+        },
+        "expect": {
+          "no_action_calls": true
+        }
+      }
+    ]
+  },
+  {
+    "name": "pv_lower_more_acts",
+    "note": "'3 dB more' after a card: a second change, queued without asking.",
+    "turns": [
+      {
+        "text": "lower the threshold 3 dB",
+        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61%\n  - AXSlider desc='Ratio' position=54%\n  - AXSlider desc='Attack' position=0%\n  - AXSlider desc='Release' position=40%\n  - AXSlider desc='Knee' position=20%\n  - AXSlider desc='Make Up' position=50%\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
+        "plugin_reads": {
+          "Compressor": {
+            "Circuit Type": "Platinum Digital",
+            "Threshold": "-19.5 dB",
+            "Ratio": "8.7:1",
+            "Attack": "0.0 ms",
+            "Release": "51.0 ms",
+            "Knee": "0.2",
+            "Make Up": "0.0 dB",
+            "Mix": "100 %"
+          }
+        }
+      },
+      {
+        "text": "lower it 3 dB more",
+        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61%\n  - AXSlider desc='Ratio' position=54%\n  - AXSlider desc='Attack' position=0%\n  - AXSlider desc='Release' position=40%\n  - AXSlider desc='Knee' position=20%\n  - AXSlider desc='Make Up' position=50%\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
+        "plugin_reads": {
+          "Compressor": {
+            "Circuit Type": "Platinum Digital",
+            "Threshold": "-19.5 dB",
+            "Ratio": "8.7:1",
+            "Attack": "0.0 ms",
+            "Release": "51.0 ms",
+            "Knee": "0.2",
+            "Make Up": "0.0 dB",
+            "Mix": "100 %"
+          }
+        },
+        "expect": {
+          "action_calls": [
+            {
+              "tool": "set_param",
+              "args": {
+                "param": "Threshold",
+                "value": "by -3"
+              }
+            }
+          ]
+        }
+      }
+    ]
   }
 ]

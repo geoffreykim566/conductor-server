@@ -18,12 +18,13 @@ The decider's tools: their schemas (`TOOLS`) and executors. There are two kinds:
 
 ## Wire steps the client runs
 
-`{"ax_open_plugin": name, "track"?, "new"?}`, `{"ax_set_param": {plugin, param, value, track?}}`, `{"menu_path": [...]}`, `{"shortcut": "Cmd+F"}`, `{"click_text": ...}`, `{"click_value_of": label}`, `{"choose": option, "reopen": [steps], "shows"?}`. Any step may carry `expect`. The client's executor is in `client/core/automation/`. Changing a shape here means changing it there too.
+`{"ax_open_plugin": name, "track"?, "new"?}`, `{"ax_set_param": {plugin, param, value, track?}}` (`value`: a number, `by:<signed>`, or on/off), `{"menu_path": [...]}`, `{"shortcut": "Cmd+F"}`, `{"click_text": ...}`, `{"click_value_of": label}`, `{"choose": option, "reopen": [steps], "shows"?}`. Any step may carry `expect`. The client's executor is in `client/core/automation/`. Changing a shape here means changing it there too.
 
 ## Quirks & why
 
 - **Actions are typed tools.** When they were KB rows ("open plugin" behind the old vector lookup), the model had to find them first, and their names collided with plugin vocabulary ("plugin manager", "multipressor").
 - **`set_param.value` is a string**, parsed server-side (`_parse_param_value`). A number-or-on/off union wasn't held by the model even under strict mode.
+- **A signed change (`by -3`) goes to the client as `by:-3`**, like a dropdown's `larger` / `smaller`: the client applies it to the value the control shows when the card runs, so "lower the threshold 3 dB" needs no read first. Sol asks before repeating the same change right after a card made it (it may be "it didn't work", not "3 more"). An unsigned "by 3" is refused: the direction must be explicit. Battery 10-20: relative scenarios 3/3 each.
 - **Routes are the only way to navigate.** The model names a route; the path that runs is always `seed/routes.json`'s. Model-written menu paths have been confidently wrong more than anything else in this codebase.
 - **`ask_clarifying_question` requires the question text.** Called with no text, the old writer had nothing to phrase and invented an answer; now the question is the reply (`pipeline/reply.py`).
 - **open_setting's description lists each route's path, plus the reference locations** the model may state but not queue.
