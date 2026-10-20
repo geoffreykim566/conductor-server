@@ -290,6 +290,7 @@
   },
   "low latency monitoring mode": {
     "desc": "Toggles Low Latency Monitoring Mode",
+    "toggle": true,
     "path": [
       {
         "type": "menu",

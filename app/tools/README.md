@@ -31,6 +31,7 @@ The decider's tools: their schemas (`TOOLS`) and executors. There are two kinds:
 - **open_setting's description lists each route's path, plus the reference locations** the model may state but not queue.
 - **`read_plugin_values` is for answers, not edits.** Sol calls it when its answer depends on a setting the live state shows only as knob travel (`position=N%`) or not at all (window closed). Edits don't need it: a named value is queued as is. A call always parks the turn (only the client can read); see `pipeline/README.md`, Plug-in reads. Battery 10-19: 30/30 on the targeted `pv_*` scenarios.
 - **No MCP.** One client and one server, both ours: it would add per-call overhead for no interop benefit.
+- **Toggle routes take a state:** a route with `"toggle": true` (Low Latency Monitoring Mode) accepts `state` on/off, sent as the menu step's `want`; the client reads the item's checkmark and skips the click when it already matches. Without it "turn on" flipped an already-on mode off (10-20). Omitted, the route flips as before, which is what "toggle" means and what clients before v0.4.2 do anyway.
 - **The toggle gate:** a route with `toggle_ax_key` is refused when live state says it's already in its target state, because running it would flip it *away*.
 
 ### Dropdown routes (`choice` block in routes.json)

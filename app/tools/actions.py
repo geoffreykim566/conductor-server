@@ -116,6 +116,14 @@ def queue_open_setting(inp: dict, ax_fixture: dict | None = None) -> dict:
     steps = path_to_walkthrough_steps(route["path"])
     if not steps:
         return {"attached": False, "reason": "route has no executable steps"}
+    state = str(inp.get("state") or "").strip().lower()
+    if state:
+        if not route.get("toggle"):
+            return {"attached": False, "reason": f"{name!r} isn't a toggle -- call it without state"}
+        if state not in ("on", "off") or "menu_path" not in steps[-1]:
+            return {"attached": False, "reason": "state must be on or off"}
+        # The client reads the menu item's checkmark and skips the click when it already matches.
+        steps[-1] = {**steps[-1], "want": state}
     choice = route.get("choice")
     value = str(inp.get("value") or "").strip()
     chosen = None

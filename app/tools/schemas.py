@@ -194,6 +194,13 @@ OPEN_SETTING_SCHEMA = {
                 "description": "Only for a route marked [value: ...]: one of its listed options, or "
                                "larger / smaller where listed. Omit to just open the pane.",
             },
+            "state": {
+                "type": "string",
+                "enum": ["on", "off"],
+                "description": "Only for a route marked [toggle]: on or off, what the user wants it to "
+                               "end as. It's left alone if it's already there; omit only when the "
+                               "user just wants it flipped.",
+            },
         },
         "required": ["name"],
         "additionalProperties": False,

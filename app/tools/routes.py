@@ -48,6 +48,8 @@ def route_path_text(name: str) -> str:
 
 def route_line(name: str, route: dict) -> str:
     line = f"- {name}: {route['desc']} -- {route_path_text(name)}"
+    if route.get("toggle"):
+        line += " [toggle: pass state on/off for what the user wants it to end as]"
     choice = route.get("choice")
     if choice is None:
         return line

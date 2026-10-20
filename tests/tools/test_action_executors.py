@@ -28,3 +28,17 @@ def test_set_param_parses_value(raw, want) -> None:
 def test_set_param_refuses_non_number(bad) -> None:
     got = tools.queue_set_param({"plugin": "P", "param": "X", "value": bad})
     assert got["attached"] is False and "plain number" in got["reason"], (bad, got)
+
+
+def test_toggle_route_carries_the_wanted_state() -> None:
+    route = "low latency monitoring mode"
+    got = tools.queue_open_setting({"name": route, "state": "On"})
+    assert got["attached"] and got["steps"] == [
+        {"menu_path": ["Record", "Low Latency Monitoring Mode"], "want": "on"}]
+    assert tools.queue_open_setting({"name": route})["steps"] == [
+        {"menu_path": ["Record", "Low Latency Monitoring Mode"]}]          # no state: a plain flip
+    assert tools.queue_open_setting({"name": route, "state": "maybe"})["attached"] is False
+
+
+def test_state_is_refused_on_a_route_that_isnt_a_toggle() -> None:
+    assert tools.queue_open_setting({"name": "metronome settings", "state": "on"})["attached"] is False
