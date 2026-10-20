@@ -1526,7 +1526,7 @@
     "turns": [
       {
         "text": "i'm in the compressor, what do you see for my settings",
-        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61% (knob travel, not the setting)\n  - AXSlider desc='Ratio' position=54% (knob travel, not the setting)\n  - AXSlider desc='Attack' position=0% (knob travel, not the setting)\n  - AXSlider desc='Release' position=40% (knob travel, not the setting)\n  - AXSlider desc='Knee' position=20% (knob travel, not the setting)\n  - AXSlider desc='Make Up' position=50% (knob travel, not the setting)\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
+        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61%\n  - AXSlider desc='Ratio' position=54%\n  - AXSlider desc='Attack' position=0%\n  - AXSlider desc='Release' position=40%\n  - AXSlider desc='Knee' position=20%\n  - AXSlider desc='Make Up' position=50%\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
         "plugin_reads": {
           "Compressor": {
             "Circuit Type": "Platinum Digital",
@@ -1586,7 +1586,7 @@
     "turns": [
       {
         "text": "is my compression too heavy on the vocal?",
-        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61% (knob travel, not the setting)\n  - AXSlider desc='Ratio' position=54% (knob travel, not the setting)\n  - AXSlider desc='Attack' position=0% (knob travel, not the setting)\n  - AXSlider desc='Release' position=40% (knob travel, not the setting)\n  - AXSlider desc='Knee' position=20% (knob travel, not the setting)\n  - AXSlider desc='Make Up' position=50% (knob travel, not the setting)\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
+        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61%\n  - AXSlider desc='Ratio' position=54%\n  - AXSlider desc='Attack' position=0%\n  - AXSlider desc='Release' position=40%\n  - AXSlider desc='Knee' position=20%\n  - AXSlider desc='Make Up' position=50%\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
         "plugin_reads": {
           "Compressor": {
             "Circuit Type": "Platinum Digital",
@@ -1611,7 +1611,7 @@
     "turns": [
       {
         "text": "my vocal sounds squashed, fix the compressor",
-        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61% (knob travel, not the setting)\n  - AXSlider desc='Ratio' position=54% (knob travel, not the setting)\n  - AXSlider desc='Attack' position=0% (knob travel, not the setting)\n  - AXSlider desc='Release' position=40% (knob travel, not the setting)\n  - AXSlider desc='Knee' position=20% (knob travel, not the setting)\n  - AXSlider desc='Make Up' position=50% (knob travel, not the setting)\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
+        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61%\n  - AXSlider desc='Ratio' position=54%\n  - AXSlider desc='Attack' position=0%\n  - AXSlider desc='Release' position=40%\n  - AXSlider desc='Knee' position=20%\n  - AXSlider desc='Make Up' position=50%\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
         "plugin_reads": {
           "Compressor": {
             "Circuit Type": "Platinum Digital",
@@ -1644,7 +1644,7 @@
     "turns": [
       {
         "text": "what's my delay feedback at?",
-        "ax_state": "### Guitar\n- AXWindow title='Guitar'\n  - AXStaticText value='Tape Delay'\n  - AXSlider desc='Delay Time' position=35% (knob travel, not the setting)\n  - AXSlider desc='Feedback' position=61% (knob travel, not the setting)\n  - AXSlider desc='Low Cut' position=20% (knob travel, not the setting)\n  - AXSlider desc='High Cut' position=70% (knob travel, not the setting)\n  - AXSlider desc='Mix' position=30% (knob travel, not the setting)\n### Untitled - Tracks\n- AXLayoutItem desc='Guitar'\n  - AXGroup desc='Tape Delay'\n    - AXButton desc='open'\n  - AXButton desc='audio plug-in'",
+        "ax_state": "### Guitar\n- AXWindow title='Guitar'\n  - AXStaticText value='Tape Delay'\n  - AXSlider desc='Delay Time' position=35%\n  - AXSlider desc='Feedback' position=61%\n  - AXSlider desc='Low Cut' position=20%\n  - AXSlider desc='High Cut' position=70%\n  - AXSlider desc='Mix' position=30%\n### Untitled - Tracks\n- AXLayoutItem desc='Guitar'\n  - AXGroup desc='Tape Delay'\n    - AXButton desc='open'\n  - AXButton desc='audio plug-in'",
         "plugin_reads": {
           "Tape Delay": {
             "Delay Time": "1/8",
@@ -1685,7 +1685,7 @@
     "turns": [
       {
         "text": "how do I use the compressor?",
-        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61% (knob travel, not the setting)\n  - AXSlider desc='Ratio' position=54% (knob travel, not the setting)\n  - AXSlider desc='Attack' position=0% (knob travel, not the setting)\n  - AXSlider desc='Release' position=40% (knob travel, not the setting)\n  - AXSlider desc='Knee' position=20% (knob travel, not the setting)\n  - AXSlider desc='Make Up' position=50% (knob travel, not the setting)\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
+        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61%\n  - AXSlider desc='Ratio' position=54%\n  - AXSlider desc='Attack' position=0%\n  - AXSlider desc='Release' position=40%\n  - AXSlider desc='Knee' position=20%\n  - AXSlider desc='Make Up' position=50%\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
         "plugin_reads": {
           "Compressor": {
             "Circuit Type": "Platinum Digital",
@@ -1710,7 +1710,7 @@
     "turns": [
       {
         "text": "what ratio should I use on vocals?",
-        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61% (knob travel, not the setting)\n  - AXSlider desc='Ratio' position=54% (knob travel, not the setting)\n  - AXSlider desc='Attack' position=0% (knob travel, not the setting)\n  - AXSlider desc='Release' position=40% (knob travel, not the setting)\n  - AXSlider desc='Knee' position=20% (knob travel, not the setting)\n  - AXSlider desc='Make Up' position=50% (knob travel, not the setting)\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
+        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61%\n  - AXSlider desc='Ratio' position=54%\n  - AXSlider desc='Attack' position=0%\n  - AXSlider desc='Release' position=40%\n  - AXSlider desc='Knee' position=20%\n  - AXSlider desc='Make Up' position=50%\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
         "plugin_reads": {
           "Compressor": {
             "Circuit Type": "Platinum Digital",
@@ -1735,7 +1735,7 @@
     "turns": [
       {
         "text": "set the threshold to -24",
-        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61% (knob travel, not the setting)\n  - AXSlider desc='Ratio' position=54% (knob travel, not the setting)\n  - AXSlider desc='Attack' position=0% (knob travel, not the setting)\n  - AXSlider desc='Release' position=40% (knob travel, not the setting)\n  - AXSlider desc='Knee' position=20% (knob travel, not the setting)\n  - AXSlider desc='Make Up' position=50% (knob travel, not the setting)\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
+        "ax_state": "### Vocal\n- AXWindow title='Vocal'\n  - AXStaticText value='Compressor'\n  - AXSlider desc='Threshold' position=61%\n  - AXSlider desc='Ratio' position=54%\n  - AXSlider desc='Attack' position=0%\n  - AXSlider desc='Release' position=40%\n  - AXSlider desc='Knee' position=20%\n  - AXSlider desc='Make Up' position=50%\n### Untitled - Tracks\n- AXLayoutItem desc='Vocal'\n  - AXGroup desc='Compressor'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'\n  - AXButton desc='audio plug-in'",
         "plugin_reads": {
           "Compressor": {
             "Circuit Type": "Platinum Digital",

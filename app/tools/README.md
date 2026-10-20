@@ -27,7 +27,7 @@ The decider's tools: their schemas (`TOOLS`) and executors. There are two kinds:
 - **Routes are the only way to navigate.** The model names a route; the path that runs is always `seed/routes.json`'s. Model-written menu paths have been confidently wrong more than anything else in this codebase.
 - **`ask_clarifying_question` requires the question text.** Called with no text, the old writer had nothing to phrase and invented an answer; now the question is the reply (`pipeline/reply.py`).
 - **open_setting's description lists each route's path, plus the reference locations** the model may state but not queue.
-- **`read_plugin_values` is for answers, not edits.** Sol calls it when its answer depends on a setting the live state shows only as knob travel (`position=`) or not at all (window closed). Edits don't need it: a named value is queued as is. It's gated off (`PLUGIN_READS`) until the client runs the read and the turn parks for it like research (`plugin-values-log.md`). Battery 10-19: 30/30 on the targeted `pv_*` scenarios.
+- **`read_plugin_values` is for answers, not edits.** Sol calls it when its answer depends on a setting the live state shows only as knob travel (`position=N%`) or not at all (window closed). Edits don't need it: a named value is queued as is. It's gated off (`PLUGIN_READS`) until the client runs the read and the turn parks for it like research (`plugin-values-log.md`). Battery 10-19: 30/30 on the targeted `pv_*` scenarios.
 - **No MCP.** One client and one server, both ours: it would add per-call overhead for no interop benefit.
 - **The toggle gate:** a route with `toggle_ax_key` is refused when live state says it's already in its target state, because running it would flip it *away*.
 
