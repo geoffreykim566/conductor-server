@@ -141,13 +141,7 @@ async def chat(request: Request, req: ChatRequest, user: asyncpg.Record = Depend
                         "type": "done",
                         "event_id": str(event_id),
                         "remaining": remaining,
-                        # Confidence badge disabled (README: Done payload).
-                        "source_tier": "",
                         "sources": result.sources,
-                        "intent": "",
-                        "locate_type": "",
-                        "element": "",
-                        "search_term": "",
                         "walkthrough_steps": result.walkthrough_steps or [],
                         # Older clients ignore it.
                         "auto_run": result.auto_run,

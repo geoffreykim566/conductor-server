@@ -8,10 +8,9 @@ OnChunk = Callable[[str], Awaitable[None]]
 OnStatus = Callable[[str], Awaitable[None]]
 
 
-async def call_model(system: list[dict], tools_param: list[dict] | None, msgs: list[dict],
-                     tool_choice: dict | None = None):
+async def call_model(system: list[dict], tools_param: list[dict] | None, msgs: list[dict]):
     """One decider call. tools_param=None is the tools-off final call."""
-    return await openai_io.call_decider(system, tools_param, msgs, tool_choice)
+    return await openai_io.call_decider(system, tools_param, msgs)
 
 
 def serialize_content(content: list) -> list[dict]:

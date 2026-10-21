@@ -51,7 +51,7 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 - **Oversized screenshots are dropped, not rejected.** They're best-effort context the client sends silently. One oversized PNG (an old v0.3.0 client capturing a brushed-metal plugin skin) used to 422 every turn as "message too long".
 - **422s are logged** (`[validation_422]`) with the failing field, and the response strips pydantic's input echo, which for screenshots is the whole image.
 - **The body-size cap is middleware**, because uvicorn reads the body before pydantic runs. It's bounded by one turn's screenshots plus a text history; screenshots never accumulate.
-- **The confidence badge is disabled:** `done.source_tier` is always `""`. The tier is a trace rule and fired on plain observations ("which tracks are muted"). It's still computed for the battery and logs.
+- **No confidence badge:** `done` carries no tier (the client's badge was removed 10-21). The tier is a trace rule and fired on plain observations ("which tracks are muted"); it's still computed for the battery and the admin event log. Old clients read every `done` field with a default, so dropped fields (`source_tier`, and the locate-era `intent` / `locate_type` / `element` / `search_term`) are safe.
 - **Known soft spot:** history isn't signed, so a hand-built "parked" transcript gets one uncharged answer. Accepted; the free tier is a soft cap.
 - **Errors.** A failed turn tells the user only whether it's worth retrying; the cause stays in the log. `openai_io.post` retries 429 / 5xx / network / malformed tool JSON (4×, ~15 s), then raises `SolError(kind, cause)`:
   - `down` ("Conductor is down"): out of credit (`insufficient_quota`, not retried), a rejected key, 5xx or timeouts after retries.

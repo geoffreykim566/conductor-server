@@ -10,7 +10,7 @@ from app.pipeline.confidence import collect_sources
 from app.pipeline.context import TurnContext
 from app.pipeline.dispatch import handle_tool_use
 from app.pipeline.executors import status_for_tools
-from app.pipeline.heuristics import auto_run_ok, force_first_call, last_user_text, offered_text
+from app.pipeline.heuristics import auto_run_ok, last_user_text, offered_text
 from app.pipeline.model_io import OnChunk, OnStatus
 from app.pipeline.result import Result
 from app.pipeline.transcript import last_user_text_index, pending_tool_uses
@@ -32,26 +32,19 @@ async def respond(messages: list[dict], **kwargs) -> Result:
     return result
 
 
-async def _call(ctx: TurnContext, msgs: list[dict], usage: list[dict],
-                nudge: str | None = None, tool_choice: dict | None = None):
-    system = ctx.system + ([{"type": "text", "text": "\n\n" + nudge}] if nudge else [])
-    resp = await model_io.call_model(system, ctx.tools, ctx.for_call(msgs), tool_choice)
+async def _call(ctx: TurnContext, msgs: list[dict], usage: list[dict]):
+    resp = await model_io.call_model(ctx.system, ctx.tools, ctx.for_call(msgs))
     usage.append(model_io.usage_dict(resp.usage))
     tool_uses = [b for b in resp.content if b.type == "tool_use"]
     return resp, tool_uses, "".join(b.text for b in resp.content if b.type == "text")
 
 
-async def _decide(i: int, msgs: list[dict], state: TurnState, ctx: TurnContext,
-                  force_first: bool, on_status: OnStatus | None, usage: list[dict]):
-    """One decider call, plus at most one re-ask: a go-ahead's first call that made no
-    tool call (TOOL_NUDGE). Returns (response, tool_uses, this iteration's text)."""
+async def _decide(msgs: list[dict], state: TurnState, ctx: TurnContext,
+                  on_status: OnStatus | None, usage: list[dict]):
+    """One decider call. Returns (response, tool_uses, this iteration's text)."""
     if on_status:
         await on_status("Thinking…")
-    tool_choice = settings.FORCED_TOOL_CHOICE if i == 0 and force_first else None
-    resp, tool_uses, iter_text = await _call(ctx, msgs, usage, tool_choice=tool_choice)
-    if (i == 0 and force_first and not tool_uses and tool_choice is None
-            and settings.RETRY_NO_TOOL_FIRST_CALL):
-        resp, tool_uses, iter_text = await _call(ctx, msgs, usage, nudge=notes.TOOL_NUDGE)
+    resp, tool_uses, iter_text = await _call(ctx, msgs, usage)
     if iter_text:
         state.add_text(iter_text, follow_up=not tool_uses)
     return resp, tool_uses, iter_text
@@ -143,7 +136,6 @@ async def run_turn(
     ctx = TurnContext.build(msgs, screenshots_b64, ax_fixture, ax_state, plugin_reads)
     usage: list[dict] = []
     state = restore_turn_state(msgs[len(messages):-1]) if resume else TurnState()
-    force_first = force_first_call(messages)
 
     async def finish(is_clarifying_question: bool = False, question: str = "") -> Result:
         text, tier = await finalize_reply(
@@ -159,7 +151,7 @@ async def run_turn(
             # Resumed: the model already made this call; execute what it asked for.
             tool_uses, resp, iter_text = parked, None, ""
         else:
-            resp, tool_uses, iter_text = await _decide(i, msgs, state, ctx, force_first, on_status, usage)
+            resp, tool_uses, iter_text = await _decide(msgs, state, ctx, on_status, usage)
         state.more_actions = bool(getattr(resp, "more_actions", False))
 
         if not tool_uses:

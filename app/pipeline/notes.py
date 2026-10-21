@@ -26,11 +26,6 @@ PLUGIN_READ_ONE_AT_A_TIME = {
     "error": "Only one plug-in is read per call. Call read_plugin_values again for this one."
 }
 
-TOOL_NUDGE = (
-    "Call a tool before you answer: the action the user just agreed to (each turn gets its own "
-    "card, so queue it again even if an earlier reply offered it), or ask_clarifying_question "
-    "if you can't tell what they want run."
-)
 FINAL_ANSWER_NUDGE = "\n\nAnswer now with your best available information — no more tool calls."
 
 ATTACH_CAP_REFUSAL = (

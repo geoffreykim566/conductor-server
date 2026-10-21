@@ -13,21 +13,21 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
 | `cards.py` | Action identity keys and span bookkeeping |
 | `context.py` | System prompt, live-state block, screenshot splice |
 | `reply.py` | The reply: Sol's text, the undo decline, a tool-only question appended; streams it |
-| `heuristics.py` | Reads of the user's own text: question? undo? greeting/closer? a go-ahead after a card? |
+| `heuristics.py` | Reads of the user's own text: question? undo? re-ask? may the card auto-run? |
 | `backfill.py` | Re-shows an earlier card on "show me that again" |
 | `confidence.py` | Confidence tier from the trace; research sources |
 | `model_io.py` | The only decider call site; response blocks -> request-shape dicts |
 | `openai_io.py` | The Sol decider on OpenAI's Responses API, translated to and from the pipeline's blocks |
 | `transcript.py` | Turn boundary and pending tool calls in a message list |
 | `settings.py` | Tunables (`MAX_ITERATIONS`, decider effort, early exit, ...) |
-| `notes.py` | Fixed text: refusals and nudges for the decider, the undo decline for the user |
+| `notes.py` | Fixed text: refusals and the answer-now nudge for the decider, the undo decline for the user |
 | `result.py` | `Result` dataclass |
 
 ## How a turn flows
 
 1. **Context.** The system prompt (`prompts/decider.py`) plus a live-state block (the client's AX dump, or the battery's `ax_fixture`). The screenshots are spliced into this turn's user message for each call only.
 2. **Decider loop** (≤ `MAX_ITERATIONS`). Sol (`config.SOL_MODEL`, effort `settings.DECIDER_EFFORT`) is called with its tools. It answers and calls actions; its reply rides on the first action call's `answer` argument.
-   - The first call is unforced, except for a go-ahead after a card (Forced first call, below).
+   - Every call is unforced (`tool_choice` auto; Forced first call, below).
    - Each tool call goes through `dispatch.handle_tool_use`, which updates the card.
    - Every iteration's text is kept (Turn text, below).
 3. **The turn ends** when Sol stops calling tools, an iteration qualifies for early exit, Sol calls `ask_clarifying_question`, or it runs out of iterations. Running out gets one tools-off "answer now" call, so a turn is never empty.
@@ -64,17 +64,9 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
 - **Duplicates** (same tool + args) are refused: the step runs once.
 - **Re-visited setting:** a second `open_setting` for the same route replaces the first. The later call is the correction the prose follows.
 
-### Forced first call (`heuristics.force_first_call`)
-- **Normally the first call is unforced.** Forcing a tool makes the API suppress text before the call.
-- **The one forced case** is a go-ahead after a reply that queued a card ("yes please, do it"). Unforced, it got "press Run" about the earlier card.
-- **Exemptions:**
-  - Re-asks (forcing would starve backfill).
-  - Closers like "thanks".
-  - Whole-project destructive requests (declined with no tool call).
-  - Bare greetings, matched against the whole message because "hi" is inside "this".
-  - Anything question-shaped.
-- **`FORCED_TOOL_CHOICE` is None** (Sonnet rejected a forced choice with a 400; unmeasured with Sol).
-- **The `TOOL_NUDGE` re-ask is off** (`RETRY_NO_TOOL_FIRST_CALL`, 10-18). It was Sonnet's stand-in for forcing: a go-ahead answered with no tool was asked again, and the second call's text replaced the first. With Sol the trigger catches far more than go-aheads (any non-question after a card: "now what", "i hit R but its just blinking"), and in the 10-18 live pass the re-ask replaced a real reply 3/3 times: steps dropped ("…follow these steps" with none), an explanation reduced to a clarifying question. With both knobs off, `force_first_call` has no effect; it stays for a model that accepts a forced choice.
+### Forced first call (removed 10-21)
+- **Every call is unforced.** Forcing a tool makes the API suppress text before the call.
+- A go-ahead after a card ("yes please, do it") used to force a tool call, or re-ask with a nudge when it made none: Sonnet answered "press Run" about the earlier card. Both were off since 10-18: with Sol the trigger caught any non-question after a card ("now what"), and the re-ask replaced a real reply 3/3 times in the live pass. The code is in git history (server `v042`); the battery's "now what" scenario guards the behaviour.
 
 ### Early exit (`respond._can_exit_early`)
 - **The rule:** an iteration whose calls were all accepted actions ends the turn, without the prose-only follow-up call (~2.5 s). Direct commands drop from ~5 s to ~2.5–3 s.
@@ -97,7 +89,6 @@ History keeps both copies; only the reply drops them.
 - They're hand-curated and deliberately narrow.
 - Bare "again" and "forgot" are excluded ("thanks again, that fixed it").
 - "cant find it" was removed after it matched 7 battery turns.
-- The destructive list is project-scoped only, because "delete everything on this track" is undo-able.
 - **`offered_text` also reads `ask_clarifying_question`'s question.** A question asked only through the tool offers options too; without it, "yes" after "do you mean On + Align Bars and Beats?" named nothing and the value was refused.
 - **Undo requests are declined in code** (`is_undo_request`, skipped when question-shaped). A prompt line alone let a reply say "press Command-Z" (wrong for settings, which aren't in Logic's Undo), and a broader rule also denied "how do i undo a cut".
 - **Re-sweep the full battery after changing any list.** Checking only the scenario you were fixing has given false confidence more than once.

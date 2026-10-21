@@ -73,7 +73,7 @@ def queue_setting(name: str, value: str | None = None, said: str = "", offered: 
 class FakeModel:
     """Stands in for model_io.call_model. Each call takes the next scripted response,
     the last one repeating, and records its arguments as a dict (system, tools,
-    messages, tool_choice)."""
+    messages)."""
 
     def __init__(self) -> None:
         self.responses: list = []
@@ -84,9 +84,8 @@ class FakeModel:
         self.responses, self.decider_calls = list(responses), []
         return self.decider_calls
 
-    async def call(self, system, tools_param, msgs, tool_choice=None):
-        self.decider_calls.append({"system": system, "tools": tools_param, "messages": msgs,
-                                   "tool_choice": tool_choice})
+    async def call(self, system, tools_param, msgs):
+        self.decider_calls.append({"system": system, "tools": tools_param, "messages": msgs})
         return self.responses[min(len(self.decider_calls) - 1, len(self.responses) - 1)]
 
 

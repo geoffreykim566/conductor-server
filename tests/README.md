@@ -38,7 +38,7 @@ docker compose -p <name> -f docker-compose.yml -f docker-compose.standalone.yml 
 - Never hit the API. Drive a turn with the `run` fixture:
   `result, decider_calls = await run([resp(...), ...], messages=[...], early_exit=False, **respond_kwargs)`.
   It patches `model_io.call_model`: decider calls take the scripted responses in order (last
-  repeats), recorded as dicts (`system`, `tools`, `messages`, `tool_choice`). The Responses
+  repeats), recorded as dicts (`system`, `tools`, `messages`). The Responses
   translation itself is tested against a mocked `openai_io._client.post` (`test_sol_decider.py`).
   `web_research` is the `research` mock. `settings.EARLY_EXIT_ON_ACTION`
   is off unless `early_exit=True`, so scripts keep the decider going after an action.

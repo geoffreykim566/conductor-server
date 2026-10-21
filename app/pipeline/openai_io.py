@@ -51,13 +51,6 @@ def _tools(ts: list[dict]) -> list[dict]:
              "parameters": t["input_schema"], "strict": False} for t in ts]
 
 
-def _tool_choice(tc: dict | None):
-    if tc is None:
-        return "auto"
-    return {"any": "required", "none": "none", "auto": "auto"}.get(tc.get("type")) or {
-        "type": "function", "name": tc["name"]}
-
-
 def _input(system: list[dict], msgs: list[dict], stash: dict) -> tuple[str, list[dict]]:
     """Static prompt -> instructions; later system blocks (live state, nudges) -> developer
     messages ahead of the history, so the instructions + tools prefix stays cacheable."""
@@ -163,8 +156,7 @@ async def post(body: dict) -> dict:
     raise AssertionError("unreachable")
 
 
-async def call_decider(system: list[dict], tools_param: list[dict] | None, msgs: list[dict],
-                       tool_choice: dict | None = None):
+async def call_decider(system: list[dict], tools_param: list[dict] | None, msgs: list[dict]):
     """One decider call. tools_param=None is the tools-off final call: the tools still go
     (history may hold function calls) with tool_choice none."""
     if not config.OPENAI_API_KEY:
@@ -181,7 +173,7 @@ async def call_decider(system: list[dict], tools_param: list[dict] | None, msgs:
     instructions, items = _input(system, msgs, stash)
     body = {"model": config.SOL_MODEL, "instructions": instructions, "input": items,
             "tools": _tools(tools_param if tools_param is not None else TOOLS),
-            "tool_choice": "none" if tools_param is None else _tool_choice(tool_choice),
+            "tool_choice": "none" if tools_param is None else "auto",
             "reasoning": {"effort": settings.DECIDER_EFFORT or "medium"},
             "max_output_tokens": config.SOL_MAX_OUTPUT_TOKENS,
             "store": False, "include": ["reasoning.encrypted_content"],

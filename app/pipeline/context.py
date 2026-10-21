@@ -34,10 +34,6 @@ class TurnContext:
     turn_idx: int | None  # this turn's user message in msgs
     screenshot_msg: dict | None
 
-    @property
-    def had_screenshots(self) -> bool:
-        return self.screenshot_msg is not None
-
     @classmethod
     def build(cls, msgs: list[dict], screenshots_b64: list[str] | None,
               ax_fixture: dict | None, ax_state: str | None, plugin_reads: bool = False) -> "TurnContext":
