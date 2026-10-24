@@ -99,6 +99,38 @@ def queue_set_param(inp: dict) -> dict:
     return {"attached": True, "action": "set_param", "steps": [{"ax_set_param": spec}]}
 
 
+def parse_checks(value: str, options: list[str]) -> tuple[list[str] | None, str | None]:
+    """A comma/and list of option names ("vocals and drums") -> the options, in the
+    sheet's order. Case and a trailing s don't matter; an unknown name is refused."""
+    names = [n.strip() for n in re.split(r",|\band\b|&|\+", value) if n.strip()]
+    key = {o.lower().rstrip("s"): o for o in options}
+    got, bad = set(), []
+    for n in names:
+        o = key.get(n.lower().rstrip("s"))
+        if o:
+            got.add(o)
+        else:
+            bad.append(n)
+    if bad or not got:
+        return None, f"{', '.join(bad) or value!r} isn't one of: {', '.join(options)}"
+    return [o for o in options if o in got], None
+
+
+def _with_checks(name: str, route: dict, steps: list, value: str) -> dict:
+    """A route whose sheet has checkboxes: a value ticks exactly those and unticks the rest;
+    no value opens the sheet as it is. The client never presses the sheet's Apply."""
+    out = {"attached": True, "action": "open_setting", "destination": name, "steps": steps}
+    if not value:
+        return out
+    checks = route["checks"]
+    picked, reason = parse_checks(value, checks["options"])
+    if picked is None:
+        return {"attached": False, "reason": reason}
+    steps.append({"checks": {o: o in picked for o in checks["options"]}, "sheet": checks["sheet"]})
+    out["checks"] = picked
+    return out
+
+
 def queue_open_setting(inp: dict, ax_fixture: dict | None = None) -> dict:
     """Executor for open_setting: an approved route's verified steps."""
     name = str(inp.get("name") or "").strip()
@@ -116,6 +148,12 @@ def queue_open_setting(inp: dict, ax_fixture: dict | None = None) -> dict:
     steps = path_to_walkthrough_steps(route["path"])
     if not steps:
         return {"attached": False, "reason": "route has no executable steps"}
+    target = str(inp.get("target") or "").strip()
+    if target:
+        at = next((i for i, st in enumerate(steps) if "context_menu" in st), None)
+        if at is None:
+            return {"attached": False, "reason": f"{name!r} takes no target -- call it without target"}
+        steps[at] = {**steps[at], "target": target}   # the client opens the menu on this one, selected or not
     state = str(inp.get("state") or "").strip().lower()
     if state:
         if not route.get("toggle"):
@@ -127,6 +165,8 @@ def queue_open_setting(inp: dict, ax_fixture: dict | None = None) -> dict:
     choice = route.get("choice")
     value = str(inp.get("value") or "").strip()
     chosen = None
+    if route.get("checks"):
+        return _with_checks(name, route, steps, value)
     if value and choice is None:
         return {"attached": False, "reason": f"{name!r} has no value to choose -- call it without value"}
     if choice is not None:

@@ -17,6 +17,8 @@ RELATIVE_VALUES = ("larger", "smaller")
 
 def _step_text(step: dict) -> str:
     value = step.get("value")
+    if step.get("type") == "context_menu":
+        return f"Control-click the {step.get('on') or 'region'} > " + " > ".join(value)
     if isinstance(value, list):  # anchors: whichever of these labels is showing
         return f"the control showing its current option (e.g. '{value[0]}')"
     if step.get("type") == "shortcut":
@@ -50,6 +52,13 @@ def route_line(name: str, route: dict) -> str:
     line = f"- {name}: {route['desc']} -- {route_path_text(name)}"
     if route.get("toggle"):
         line += " [toggle: pass state on/off for what the user wants it to end as]"
+    on = next((st.get("on") or "region" for st in route.get("path") or [] if st.get("type") == "context_menu"), None)
+    if on:
+        line += f" [target: {on} -- pass its name when the user names or points to one]"
+    checks = route.get("checks")
+    if checks:
+        line += (f" [value: the ones the user asked for, comma-separated, from {' | '.join(checks['options'])}"
+                 " -- only those are ticked; omit to open it as it is]")
     choice = route.get("choice")
     if choice is None:
         return line

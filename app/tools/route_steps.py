@@ -9,7 +9,8 @@ def path_to_walkthrough_steps(path: list) -> list | None:
     Consecutive "menu" steps (top menu bar items) collapse into one menu_path chain,
     since the client locates those together via menu-bar OCR. "click_text"/"click_value_of"
     steps are on-screen controls and stay one-per-step, since each needs its own locate
-    call. "shortcut" steps are always their own step.
+    call. "shortcut" steps are always their own step, and so is "context_menu"
+    (a target's Control-click menu: `on` names the target, `or` an alternative path).
     """
     if not path:
         return None
@@ -39,5 +40,15 @@ def path_to_walkthrough_steps(path: list) -> list | None:
         elif stype == "click_text":
             flush_menu()
             steps.append({"click_text": val})
+        elif stype == "context_menu":
+            # a target's Control-click menu, opened through AX; `or` is a second path
+            # in the same menu, `opens` the sheet that proves it worked
+            flush_menu()
+            wire = {"context_menu": list(val), "on": step.get("on") or "region"}
+            if step.get("or"):
+                wire["or"] = list(step["or"])
+            if step.get("opens"):
+                wire["opens"] = step["opens"]
+            steps.append(wire)
     flush_menu()
     return steps or None

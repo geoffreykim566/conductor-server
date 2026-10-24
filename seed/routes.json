@@ -618,6 +618,23 @@
       }
     ]
   },
+  "stem splitter": {
+    "desc": "Stem Splitter on the selected audio region (or the only one): opens its sheet; the user presses Apply. Logic 11 or later on Apple silicon",
+    "path": [
+      {
+        "type": "context_menu",
+        "on": "region",
+        "value": ["Stem Splitter…"],
+        "or": ["Processing", "Stem Splitter…"],
+        "opens": "Stem Splitter"
+      }
+    ],
+    "checks": {
+      "sheet": "Stem Splitter",
+      "options": ["Vocals", "Drums", "Bass", "Guitar", "Piano", "Other"]
+    },
+    "wait_for_run": true
+  },
   "strip silence": {
     "desc": "Remove Silence dialog",
     "path": [

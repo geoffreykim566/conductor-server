@@ -194,6 +194,12 @@ OPEN_SETTING_SCHEMA = {
                 "description": "Only for a route marked [value: ...]: one of its listed options, or "
                                "larger / smaller where listed. Omit to just open the pane.",
             },
+            "target": {
+                "type": "string",
+                "description": "Only for a route marked [target: region]: the region's name as the live state "
+                               "lists it, when the user names or points to one. It's acted on whatever is "
+                               "selected; omit to use the selected region.",
+            },
             "state": {
                 "type": "string",
                 "enum": ["on", "off"],

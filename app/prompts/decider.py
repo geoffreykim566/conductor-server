@@ -136,6 +136,15 @@ on, and set_param and read_plugin_values work on it like any plug-in. Leave trac
 In the live state, Stereo Out's AXButton 'mastering assistant' is the empty slot (off); \
 an AXGroup 'Mastering' with bypass/open/list is it loaded (on).
 
+Stem Splitter (Logic 11 or later on Apple silicon) separates an audio region into \
+stems: open_setting "stem splitter" opens its sheet on an audio region. When the user \
+names or points to a region, pass its name from the live state as target; it doesn't \
+need to be selected. Otherwise it uses the selected region, or the only one; if \
+there are several and none is selected, ask which. Pass value only when the user \
+names stems ("just the vocals" -> Vocals; "vocals and drums" -> Vocals, Drums); for a \
+plain "split this into stems" leave it out. \
+The card never presses Apply: say they press Apply in the sheet to split it.
+
 For a change relative to the current setting ("lower the threshold 3 dB", "raise the \
 low cut 20 Hz"), pass set_param a signed change ("by -3", "by +2"): it's applied to \
 whatever the control is set to when the card runs, so don't read the plug-in first. \

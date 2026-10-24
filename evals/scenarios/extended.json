@@ -2058,5 +2058,101 @@
         }
       ]
     }
+  },
+  {
+    "name": "stems_split_plain",
+    "note": "A plain 'split into stems' opens the Stem Splitter sheet with no stems picked (v043).",
+    "turns": [
+      {
+        "text": "split this song into stems",
+        "ax_state": "### Untitled - Tracks\n- AXLayoutItem desc='Track 1 “Audio 1”'\n  - AXLayoutItem desc='Song (Audio)' help='Audio region.' selected=true"
+      }
+    ],
+    "expect": {
+      "setting_calls": [
+        {
+          "tool": "open_setting",
+          "args": {
+            "name": "stem splitter"
+          },
+          "args_absent": [
+            "value"
+          ]
+        }
+      ],
+      "no_completion_claims": true
+    }
+  },
+  {
+    "name": "stems_vocals_only",
+    "note": "'just the vocals' ticks Vocals only (v043).",
+    "turns": [
+      {
+        "text": "can you pull out just the vocals from this",
+        "ax_state": "### Untitled - Tracks\n- AXLayoutItem desc='Track 1 “Audio 1”'\n  - AXLayoutItem desc='Song (Audio)' help='Audio region.' selected=true"
+      }
+    ],
+    "expect": {
+      "setting_calls": [
+        {
+          "tool": "open_setting",
+          "args": {
+            "name": "stem splitter",
+            "value": "vocals"
+          }
+        }
+      ],
+      "no_completion_claims": true
+    }
+  },
+  {
+    "name": "stems_vocals_drums",
+    "note": "Two named stems go in value (v043).",
+    "turns": [
+      {
+        "text": "separate the drums and vocals",
+        "ax_state": "### Untitled - Tracks\n- AXLayoutItem desc='Track 1 “Audio 1”'\n  - AXLayoutItem desc='Song (Audio)' help='Audio region.' selected=true"
+      }
+    ],
+    "expect": {
+      "setting_calls": [
+        {
+          "tool": "open_setting",
+          "args": {
+            "name": "stem splitter",
+            "value": "drum"
+          }
+        }
+      ],
+      "no_completion_claims": true
+    }
+  },
+  {
+    "name": "stems_named_region",
+    "note": "A region the user names goes in target, with nothing selected: no 'select it first' (v043, live 10-23).",
+    "turns": [
+      {
+        "text": "split sicko mode into stems",
+        "ax_state": "### Untitled - Tracks\n- AXLayoutItem desc='Track 1 “Audio 1”'\n  - AXLayoutItem desc='Travis Scott - SICKO MODE (Audio)' help='Audio region.'\n- AXLayoutItem desc='Track 2 “Audio 2”'\n  - AXLayoutItem desc='Life Is Good' help='Audio region.'"
+      }
+    ],
+    "expect": {
+      "setting_calls": [
+        {
+          "tool": "open_setting",
+          "args": {
+            "name": "stem splitter",
+            "target": "sicko"
+          },
+          "args_absent": [
+            "value"
+          ]
+        }
+      ],
+      "no_completion_claims": true,
+      "response_not_contains": [
+        "select"
+      ]
+    }
   }
 ]

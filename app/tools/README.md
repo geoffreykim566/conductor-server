@@ -18,7 +18,7 @@ The decider's tools: their schemas (`TOOLS`) and executors. There are two kinds:
 
 ## Wire steps the client runs
 
-`{"ax_open_plugin": name, "track"?, "new"?}`, `{"ax_set_param": {plugin, param, value, track?}}` (`value`: a number, `by:<signed>`, or on/off), `{"menu_path": [...]}`, `{"shortcut": "Cmd+F"}`, `{"click_text": ...}`, `{"click_value_of": label}`, `{"choose": option, "reopen": [steps], "shows"?}`. Any step may carry `expect`. The client's executor is in `client/core/automation/`. Changing a shape here means changing it there too.
+`{"ax_open_plugin": name, "track"?, "new"?}`, `{"ax_set_param": {plugin, param, value, track?}}` (`value`: a number, `by:<signed>`, or on/off), `{"menu_path": [...]}`, `{"shortcut": "Cmd+F"}`, `{"click_text": ...}`, `{"click_value_of": label}`, `{"choose": option, "reopen": [steps], "shows"?}`, `{"context_menu": [...], "on": "region", "target"?, "or"?, "opens"?}`, `{"checks": {name: bool}, "sheet"?}`. Any step may carry `expect`. The client's executor is in `client/core/automation/`. Changing a shape here means changing it there too.
 
 ## Quirks & why
 
@@ -33,6 +33,9 @@ The decider's tools: their schemas (`TOOLS`) and executors. There are two kinds:
 - **No MCP.** One client and one server, both ours: it would add per-call overhead for no interop benefit.
 - **Toggle routes take a state:** a route with `"toggle": true` (Low Latency Monitoring Mode) accepts `state` on/off, sent as the menu step's `want`; the client reads the item's checkmark and skips the click when it already matches. Without it "turn on" flipped an already-on mode off (10-20). Omitted, the route flips as before, which is what "toggle" means and what clients before v0.4.2 do anyway.
 - **The toggle gate:** a route with `toggle_ax_key` is refused when live state says it's already in its target state, because running it would flip it *away*.
+
+- **Context-menu routes (`context_menu` path type, v043):** a target's Control-click menu, opened through AX by the client. `on` is the target kind (only `region` so far), `or` a second path in the same menu (its top block reorders), `opens` the sheet that proves it worked. `open_setting`'s `target` names the region (Sol takes it from the live state), so it needn't be selected; a `target` on a route without a context menu is refused. A path type, not a tool, because it's navigation like any route and other region and track-header menu items can reuse it (user call 10-23).
+- **`checks` block:** a sheet with checkboxes (Stem Splitter's six stems). `value` is a comma/"and" list of names, ticked exactly, the rest unticked; no value opens the sheet as it is; an unknown name is refused with the list. The card never presses the sheet's Apply (user call 10-23).
 
 ### Dropdown routes (`choice` block in routes.json)
 - `options` lists the dropdown's values. An empty list means not verified yet: the route opens the pane only.
@@ -52,5 +55,5 @@ The decider's tools: their schemas (`TOOLS`) and executors. There are two kinds:
 
 ## Adding things
 
-- **A route:** add it to `seed/routes.json` (`desc`, `path`, optional `choice` / `picks` / `wait_for_run` / `toggle_ax_key`). Verify the path live in Logic first. Rebuild (it's read at import).
+- **A route:** add it to `seed/routes.json` (`desc`, `path`, optional `choice` / `checks` / `picks` / `wait_for_run` / `toggle_ax_key`). Verify the path live in Logic first. Rebuild (it's read at import).
 - **A new action tool:** schema in `schemas.py` + `ACTION_TOOLS`, executor in `actions.py`, then the pipeline side (`app/pipeline/README.md`, Adding things), then the client executor.
