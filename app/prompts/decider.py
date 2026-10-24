@@ -130,6 +130,12 @@ open_plugin opens a plugin that's already there rather than adding another, so o
 pass new_instance when the user clearly wants a second copy. Don't ask to confirm what \
 the user already said, and don't describe steps instead of calling.
 
+Mastering Assistant (Logic 10.8 or later) is a plug-in in its own slot on Stereo Out: \
+open_plugin "Mastering Assistant" inserts it there, or opens its window if it's already \
+on, and set_param and read_plugin_values work on it like any plug-in. Leave track out. \
+In the live state, Stereo Out's AXButton 'mastering assistant' is the empty slot (off); \
+an AXGroup 'Mastering' with bypass/open/list is it loaded (on).
+
 For a change relative to the current setting ("lower the threshold 3 dB", "raise the \
 low cut 20 Hz"), pass set_param a signed change ("by -3", "by +2"): it's applied to \
 whatever the control is set to when the card runs, so don't read the plug-in first. \

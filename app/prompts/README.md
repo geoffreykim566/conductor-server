@@ -13,6 +13,7 @@ The decider's system prompt: one string constant, re-exported by `__init__.py`.
 - **Live AX state is authoritative only for what it lists; the screenshot is evidence for the rest.** Calling AX "ground truth that outranks screenshots" made the model defer to an incomplete dump and say it couldn't see the screen.
 - **Keep the prompt byte-identical across turns.** Anything per-turn goes in its own system block (`pipeline/context.py`) so the prefix still caches.
 - **Plug-in settings (10-19):** a `position=` is knob travel, never a setting; when an answer depends on a value the live state doesn't give in real units, Sol calls `read_plugin_values`. From the 10-12 Compressor reply that quoted raw slider numbers and read Attack off the knob image.
+- **Mastering Assistant (v043):** a plug-in in its own Stereo Out slot, so Sol uses `open_plugin` / `set_param` / `read_plugin_values` for it rather than a route. The prompt says how the live state shows the empty slot (`AXButton 'mastering assistant'`) versus the loaded one, since the empty button's name reads like it's on.
 - **Logic facts:** add one when a miss repeats, worded as a plain fact, not a symptom match.
 
 ## Changing a prompt

@@ -1975,5 +1975,88 @@
         }
       ]
     }
+  },
+  {
+    "name": "ma_open_off",
+    "note": "Mastering Assistant is a plug-in on Stereo Out (v043): 'open it' with the slot empty is open_plugin, no track, not a route or a how-to.",
+    "turns": [
+      {
+        "text": "open mastering assistant",
+        "ax_state": "### Untitled - Tracks\n- AXLayoutItem desc='Audio 1'\n  - AXButton desc='audio plug-in'\n- AXLayoutItem desc='Stereo Out'\n  - AXTextField desc='name' value='Stereo Out'\n  - AXButton desc='audio plug-in'\n  - AXButton desc='mastering assistant'"
+      }
+    ],
+    "expect": {
+      "action_calls": [
+        {
+          "tool": "open_plugin",
+          "args": {
+            "plugin": "Mastering"
+          },
+          "args_absent": [
+            "track"
+          ]
+        }
+      ],
+      "no_completion_claims": true
+    }
+  },
+  {
+    "name": "ma_master_my_song",
+    "note": "A plain 'master my song' reaches for Logic's own Mastering Assistant via open_plugin (v043 next-phase item 1).",
+    "turns": [
+      {
+        "text": "can you master my song",
+        "ax_state": "### Untitled - Tracks\n- AXLayoutItem desc='Audio 1'\n  - AXButton desc='audio plug-in'\n- AXLayoutItem desc='Stereo Out'\n  - AXTextField desc='name' value='Stereo Out'\n  - AXButton desc='audio plug-in'\n  - AXButton desc='mastering assistant'"
+      }
+    ],
+    "expect": {
+      "action_calls": [
+        {
+          "tool": "open_plugin",
+          "args": {
+            "plugin": "Mastering"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "ma_already_on",
+    "note": "Slot already loaded ('Mastering' group): Sol says it's on; open_plugin just opens its window, which is acceptable but not required.",
+    "turns": [
+      {
+        "text": "turn on mastering assistant",
+        "ax_state": "### Untitled - Tracks\n- AXLayoutItem desc='Audio 1'\n  - AXButton desc='audio plug-in'\n- AXLayoutItem desc='Stereo Out'\n  - AXTextField desc='name' value='Stereo Out'\n  - AXButton desc='audio plug-in'\n  - AXButton desc='insert bar'\n  - AXGroup desc='Mastering'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'"
+      }
+    ],
+    "expect": {
+      "response_contains_any": [
+        "already"
+      ],
+      "no_completion_claims": true
+    }
+  },
+  {
+    "name": "ma_set_width",
+    "note": "A named value on a Mastering Assistant control is set_param on it like any plug-in, no read first.",
+    "turns": [
+      {
+        "text": "set the mastering assistant width to 0.3",
+        "ax_state": "### Stereo Out\n- AXWindow title='Stereo Out'\n  - AXStaticText value='Mastering Assistant'\n  - AXButton desc='Character, Character' value='Transparent, Transparent'\n  - AXButton desc='Loudness' value='+0.62 '\n  - AXButton desc='Width' value='0.00 '\n  - AXCheckBox desc='Excite' value=0\n### Untitled - Tracks\n- AXLayoutItem desc='Audio 1'\n  - AXButton desc='audio plug-in'\n- AXLayoutItem desc='Stereo Out'\n  - AXTextField desc='name' value='Stereo Out'\n  - AXButton desc='audio plug-in'\n  - AXButton desc='insert bar'\n  - AXGroup desc='Mastering'\n    - AXCheckBox desc='bypass' value=0\n    - AXButton desc='open'\n    - AXButton desc='list'"
+      }
+    ],
+    "expect": {
+      "plugin_read_called": false,
+      "action_calls": [
+        {
+          "tool": "set_param",
+          "args": {
+            "plugin": "Mastering",
+            "param": "Width",
+            "value": "0.3"
+          }
+        }
+      ]
+    }
   }
 ]
