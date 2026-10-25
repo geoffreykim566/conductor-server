@@ -747,5 +747,26 @@
         "text": "asdkjqwe zzzxxx"
       }
     ]
+  },
+  {
+    "name": "beginner_learning_path",
+    "note": "2026-10-24 (prod 10-18: Sol turned away a day-one beginner as not a 'specific Logic Pro question'): a broad learning question gets a plan, a first step in Logic and the time estimate asked for -- no refusal, no clarifying-only turn, no research.",
+    "expect": {
+      "no_tool_calls": true,
+      "response_contains_any": [
+        "month",
+        "week"
+      ],
+      "response_not_contains": [
+        "more specific",
+        "specific logic pro question",
+        "better at"
+      ]
+    },
+    "turns": [
+      {
+        "text": "I'm teaching myself music production starting today. How do I get to where I can make my own songs, and how long will it take?"
+      }
+    ]
   }
 ]

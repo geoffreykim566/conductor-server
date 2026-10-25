@@ -2154,5 +2154,44 @@
         "select"
       ]
     }
+  },
+  {
+    "name": "beginner_learning_path_ja",
+    "note": "2026-10-24: the prod 10-18 beginner question in Japanese (reconstructed; the original wasn't kept). Answers the 'how long' part, in Japanese.",
+    "expect": {
+      "no_tool_calls": true,
+      "response_contains_any": [
+        "ヶ月",
+        "か月",
+        "カ月",
+        "週"
+      ]
+    },
+    "turns": [
+      {
+        "text": "今日からDTMを独学で始めます。作曲できるようになるにはどうしたらいいですか？どれくらい時間がかかりますか？"
+      }
+    ]
+  },
+  {
+    "name": "beginner_first_day_where_start",
+    "note": "2026-10-24: a total beginner's open 'where do I start' gets a first step in Logic, not a request to narrow it down.",
+    "expect": {
+      "no_action_calls": true,
+      "response_contains_any": [
+        "track",
+        "project"
+      ],
+      "response_not_contains": [
+        "more specific",
+        "specific logic pro question",
+        "better at"
+      ]
+    },
+    "turns": [
+      {
+        "text": "I just installed Logic and have never made music. Where do I even start?"
+      }
+    ]
   }
 ]
