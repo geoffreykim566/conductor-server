@@ -11,12 +11,13 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 | `routes/register.py` | `POST /v3/register`: mint a signed conductor id |
 | `routes/me.py` | `GET/PUT/DELETE /v3/me`: free-message count, profile, uninstall marker |
 | `routes/ratings.py` | `POST /v3/ratings`: thumbs on a reply's event |
+| `routes/feedback.py` | `POST /v3/feedback`: a bug report or feedback from the client's Report Bug form |
 | `schemas.py` | `ChatRequest` and its limits; the history shape whitelist |
 | `history.py` | Trimming round-tripped history; spotting a parked research or plug-in-read turn |
 | `middleware.py` | Body-size cap (before validation); 422 logging |
 | `sse.py` | SSE framing |
 | `deps.py` | `current_user`: verifies the `X-Conductor-Id` header (the only auth) |
-| `admin/` | `/admin` KPI dashboard (basic auth): page, `/admin/stats`, `/admin/events`. SQL in `queries.py` |
+| `admin/` | `/admin` KPI dashboard (basic auth): page, `/admin/stats`, `/admin/events`, `/admin/feedback` (+ `/{id}`, which marks it read). SQL in `queries.py`, `feedback_queries.py` |
 
 ## /v3/chat
 
@@ -61,6 +62,7 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
   OpenAI isn't named and the credit state never leaks (user call, 10-18), but `code` is the native HTTP status (OpenAI's 401/429/5xx/400, or 500 for our bug; null for a timeout or a broken response) and the client shows it as `[Error 429]`, so a user's report still pins the cause (user call, 10-19). The client picks its own text from `kind`; `message` is there for older clients, which show it as is. Logged as `[sol_error] kind=… cause: HTTP …` (OpenAI's body included) or `[turn_error]` with the traceback. Without the traceback a missing migration once failed every lookup and nothing reached the logs.
 - **A failed turn gives its free message back** (`db.refund_free_message`, never below 0), a resume included, since its charge was taken on the parked request. Silent: the client just refreshes the counter. A cancel (Esc, disconnect) is *not* refunded (user call, 10-18): the pipeline task is cancelled and the message stays used. Neither is a turn parked for research and never resumed.
 - **Admin auth fails closed:** with no `ADMIN_PASSWORD`, nobody gets in.
+- **Feedback** (`/v3/feedback`, migration 011): `kind` bug | feedback, `title` required, `message` optional, `context` the client's dump (chat, server transcript, recent AX dumps, last card, log tail, versions; always on a bug, opt-in on feedback, no screenshot by user call 10-24). Capped at 3 MB of context and `FEEDBACK_RATE_LIMIT` per IP. Each report pings `FEEDBACK_WEBHOOK_URL` when set (Discord gets `content`, anything else Slack's `text`; `app/core/feedback_ping.py`), linking to `/admin#feedback/<id>`. A failed ping is only logged (`[feedback_ping]`).
 
 ## Adding a route
 

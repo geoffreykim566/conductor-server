@@ -222,6 +222,20 @@
     }
     .ev-page-btns { display: flex; gap: 8px; align-items: center; }
 
+    /* ── Feedback view ───────────────────────────────────────── */
+    #view-feedback {
+      max-width: 1380px; margin: 0 auto; padding: 28px 24px 56px;
+      display: none;
+    }
+    .fb-unread { font-weight: 600; }
+    .fb-kind-bug      { color: var(--red); }
+    .fb-kind-feedback { color: var(--blue); }
+    .tab-count {
+      background: var(--red); color: #fff; border-radius: 9px;
+      font-size: 11px; padding: 1px 6px; margin-left: 6px;
+    }
+    .ev-modal-box details summary { cursor: pointer; }
+
     /* ── Event detail modal ──────────────────────────────────── */
     #ev-modal {
       display: none; position: fixed; inset: 0; z-index: 200;
@@ -273,6 +287,7 @@
 <nav id="tab-nav">
   <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
   <button class="tab-btn" data-tab="events" onclick="switchTab('events')">Events Log</button>
+  <button class="tab-btn" data-tab="feedback" onclick="switchTab('feedback')">Feedback<span id="fb-count"></span></button>
 </nav>
 
 <main id="view-dashboard">
@@ -406,7 +421,20 @@
   <div id="ev-pagination"></div>
 </div>
 
-<!-- Event detail modal -->
+<!-- Feedback view -->
+<div id="view-feedback">
+  <div class="ev-filters">
+    <select id="fb-f-kind" onchange="loadFeedback(1)">
+      <option value="">All</option>
+      <option value="bug">Bugs</option>
+      <option value="feedback">Feedback</option>
+    </select>
+  </div>
+  <div id="fb-table-wrap"><div class="placeholder">Loading…</div></div>
+  <div id="fb-pagination"></div>
+</div>
+
+<!-- Event detail modal (also shows one feedback report) -->
 <div id="ev-modal" onclick="if(event.target===this)closeEvModal()">
   <div class="ev-modal-box">
     <button class="ev-modal-close" onclick="closeEvModal()">&#x2715;</button>
@@ -818,6 +846,12 @@ function renderQuality(q) {
 }
 
 loadStats();
+// The webhook ping links to #feedback/<id>; otherwise just show the unread count.
+(() => {
+  const m = location.hash.match(/^#feedback\/([0-9a-f-]{36})$/);
+  if (m) { switchTab('feedback'); openFeedback(m[1]); }
+  else fetch('/admin/feedback?limit=1').then(r => r.ok ? r.json() : null).then(d => d && setUnread(d.unread));
+})();
 
 // ── Tab switching ────────────────────────────────────────────
 let _evLoaded = false;
@@ -827,7 +861,9 @@ function switchTab(tab) {
     b.classList.toggle('active', b.dataset.tab === tab));
   document.getElementById('view-dashboard').style.display = tab === 'dashboard' ? 'block' : 'none';
   document.getElementById('view-events').style.display    = tab === 'events'    ? 'block' : 'none';
+  document.getElementById('view-feedback').style.display  = tab === 'feedback'  ? 'block' : 'none';
   if (tab === 'events' && !_evLoaded) loadEvents(1);
+  if (tab === 'feedback') loadFeedback(1);
 }
 
 // ── Events log ───────────────────────────────────────────────
@@ -945,6 +981,104 @@ function openEvModal(idx) {
 
 function closeEvModal() {
   document.getElementById('ev-modal').classList.remove('open');
+}
+
+// ── Feedback ───────────────────────────────────────────────
+var _fbPage = 1;  // var: the hash handler above runs before this line
+
+async function loadFeedback(page) {
+  _fbPage = page;
+  const kind = document.getElementById('fb-f-kind').value;
+  const p = new URLSearchParams({ page, limit: 50 });
+  if (kind) p.set('kind', kind);
+  document.getElementById('fb-table-wrap').innerHTML = '<div class="placeholder">Loading…</div>';
+  try {
+    const res = await fetch('/admin/feedback?' + p);
+    if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+    renderFeedbackTable(await res.json());
+  } catch (e) {
+    document.getElementById('fb-table-wrap').innerHTML =
+      `<div class="placeholder" style="color:var(--red)">Error: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function setUnread(n) {
+  document.getElementById('fb-count').innerHTML = n ? `<span class="tab-count">${n}</span>` : '';
+}
+
+function renderFeedbackTable(data) {
+  const { rows, total, page, pages, unread } = data;
+  setUnread(unread);
+  if (!rows.length) {
+    document.getElementById('fb-table-wrap').innerHTML = '<div class="placeholder">No reports yet.</div>';
+    document.getElementById('fb-pagination').innerHTML = '';
+    return;
+  }
+  const tsStr = ts => ts.replace('T',' ').replace(/\.\d+.*$/,'');
+  const trunc = (s, n=90) => s ? (s.length > n ? s.slice(0, n) + '…' : s) : '';
+  const tbody = rows.map(r => `
+    <tr class="${r.is_read ? '' : 'fb-unread'}">
+      <td class="ev-ts">${tsStr(r.created_at)}</td>
+      <td class="fb-kind-${r.kind}">${r.kind === 'bug' ? 'Bug' : 'Feedback'}</td>
+      <td>${escHtml(r.title)}</td>
+      <td class="ev-trunc">${escHtml(trunc(r.message))}</td>
+      <td style="font-size:12px">${escHtml(r.app_version || '—')}</td>
+      <td style="font-size:12px">${r.has_context ? 'Yes' : '—'}</td>
+      <td class="ev-uid">${r.user_id.slice(0,8)}…</td>
+      <td><button class="ev-view-btn" onclick="openFeedback('${r.id}')">View</button></td>
+    </tr>`).join('');
+  document.getElementById('fb-table-wrap').innerHTML = `
+    <div class="ev-table-wrap">
+      <table class="ev-table">
+        <thead><tr>
+          <th>Time (UTC)</th><th>Type</th><th>Title</th><th>Message</th>
+          <th>Version</th><th>Context</th><th>User</th><th></th>
+        </tr></thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    </div>`;
+  document.getElementById('fb-pagination').innerHTML = `
+    <span>${fmt.n(total)} reports</span>
+    <div class="ev-page-btns">
+      <button class="btn-sm" onclick="loadFeedback(${page-1})" ${page<=1?'disabled':''}>← Prev</button>
+      <span>Page ${page} / ${pages}</span>
+      <button class="btn-sm" onclick="loadFeedback(${page+1})" ${page>=pages?'disabled':''}>Next →</button>
+    </div>`;
+}
+
+function fbSection(title, body, open=true) {
+  const empty = body == null || body === '' || (Array.isArray(body) && !body.length);
+  const text = empty ? 'None' : (typeof body === 'string' ? body : JSON.stringify(body, null, 2));
+  return `<details ${open && !empty ? 'open' : ''}><summary class="ev-sec">${title}</summary>
+    <div class="ev-content${empty ? ' empty' : ''}">${escHtml(text)}</div></details>`;
+}
+
+async function openFeedback(id) {
+  const res = await fetch('/admin/feedback/' + id);
+  if (!res.ok) { alert('Feedback ' + id + ': ' + res.status); return; }
+  const r = await res.json();
+  const c = r.context || {};
+  const chat = (c.chat || []).map(m => `${m.role === 'user' ? 'User' : 'Conductor'}: ${m.text}`).join('\n\n');
+  const ax = (c.ax_states || []).map(a => `── ${a.label} ──\n${a.text || '(none)'}`).join('\n\n');
+  const versions = Object.entries(c.versions || {}).map(([k, v]) => `<span>${escHtml(k)}: ${escHtml(String(v))}</span>`).join('');
+  document.getElementById('ev-modal-body').innerHTML = `
+    <div class="ev-modal-meta">
+      <span class="fb-kind-${r.kind}">${r.kind === 'bug' ? 'Bug' : 'Feedback'}</span>
+      <span>${r.created_at.replace('T',' ').replace(/\.\d+.*$/,'')} UTC</span>
+      <span>User: ${escHtml(r.user_id)}</span>
+      ${versions || `<span>v${escHtml(r.app_version || '?')}</span>`}
+    </div>
+    <h3 style="margin:0 0 8px">${escHtml(r.title)}</h3>
+    <div class="ev-content${!r.message ? ' empty' : ''}">${r.message ? escHtml(r.message) : 'No message'}</div>
+    ${r.context ? `
+      ${fbSection('Chat', chat)}
+      ${fbSection('Last card', c.card)}
+      ${fbSection('Run log', c.run_log)}
+      ${fbSection('Logic window state', ax, false)}
+      ${fbSection('Server transcript', c.server_history, false)}` :
+      '<div class="ev-sec">No context attached</div>'}`;
+  document.getElementById('ev-modal').classList.add('open');
+  loadFeedback(_fbPage);
 }
 
 function escHtml(s) {

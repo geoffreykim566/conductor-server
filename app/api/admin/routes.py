@@ -1,13 +1,14 @@
-"""/admin: the internal KPI dashboard page and the two JSON endpoints it calls,
+"""/admin: the internal KPI dashboard page and the JSON endpoints it calls,
 behind basic auth. Ported from v1 (README.md)."""
 import secrets
+import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
-from app.api.admin import queries
+from app.api.admin import feedback_queries, queries
 from app.core.config import ADMIN_PASSWORD, ADMIN_USER
 
 router = APIRouter()
@@ -49,3 +50,21 @@ async def events_log(
     event_type: str | None = None,
 ):
     return await queries.events_log(page, limit, user_id, from_date, to_date, event_type)
+
+
+@router.get("/admin/feedback", include_in_schema=False)
+async def feedback_list(
+    _: None = Depends(_require_admin),
+    page: int = 1,
+    limit: int = 50,
+    kind: str | None = None,
+):
+    return await feedback_queries.feedback_list(page, limit, kind)
+
+
+@router.get("/admin/feedback/{fid}", include_in_schema=False)
+async def feedback_detail(fid: uuid.UUID, _: None = Depends(_require_admin)):
+    row = await feedback_queries.feedback_detail(fid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="not_found")
+    return row

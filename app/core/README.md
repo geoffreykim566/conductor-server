@@ -11,6 +11,7 @@ Shared infrastructure that every other package imports. Nothing in here imports 
 | `signing.py` | HMAC-signed conductor ids (`<uuid>.<sig>`) |
 | `ratelimit.py` | slowapi limiter keyed by client IP |
 | `budget.py` | Daily-spend circuit breaker |
+| `feedback_ping.py` | Optional webhook ping per bug report / feedback (`FEEDBACK_WEBHOOK_URL`) |
 
 ## Quirks & why
 

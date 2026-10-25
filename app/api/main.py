@@ -9,7 +9,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.api import middleware
 from app.api.admin import router as admin_router
-from app.api.routes import chat, me, ratings, register
+from app.api.routes import chat, feedback, me, ratings, register
 from app.core import db
 from app.core.ratelimit import limiter
 
@@ -29,6 +29,6 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_exception_handler(RequestValidationError, middleware.log_validation_errors)
 app.middleware("http")(middleware.reject_oversized_bodies)
 
-for module in (register, me, ratings, chat):
+for module in (register, me, ratings, feedback, chat):
     app.include_router(module.router)
 app.include_router(admin_router)

@@ -5,6 +5,7 @@ import os
 CONDUCTOR_ID_SECRET = os.environ.get("CONDUCTOR_ID_SECRET", "")
 RATE_LIMIT = os.environ.get("RATE_LIMIT", "10/minute")
 REGISTER_RATE_LIMIT = os.environ.get("REGISTER_RATE_LIMIT", "5/day")
+FEEDBACK_RATE_LIMIT = os.environ.get("FEEDBACK_RATE_LIMIT", "10/hour")
 
 # Trailing-24h spend (event_costs) above this makes /v3/chat return 503.
 DAILY_BUDGET_USD = float(os.environ.get("DAILY_BUDGET_USD", "10"))
@@ -28,6 +29,11 @@ FREE_LIMIT = int(os.environ.get("FREE_LIMIT", "50"))
 # /admin basic auth. An unset password locks everyone out.
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+
+# Optional ping per bug report / feedback (a Discord or Slack incoming webhook). Unset: no ping.
+FEEDBACK_WEBHOOK_URL = os.environ.get("FEEDBACK_WEBHOOK_URL", "")
+# Where the ping's admin link points.
+ADMIN_BASE_URL = os.environ.get("ADMIN_BASE_URL", "https://api.askconductor.ai")
 
 # Cap on round-tripped history (api/history.py trims to this).
 MAX_HISTORY_MESSAGES = int(os.environ.get("MAX_HISTORY_MESSAGES", "60"))

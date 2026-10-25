@@ -150,3 +150,22 @@ async def mark_uninstalled(user_id: uuid.UUID) -> None:
         "update users set uninstalled_at = now() where id = $1 and uninstalled_at is null",
         user_id,
     )
+
+
+async def insert_feedback(
+    *,
+    user_id: uuid.UUID,
+    kind: str,
+    title: str,
+    message: str | None,
+    app_version: str | None,
+    context: dict | None,
+) -> uuid.UUID:
+    return await pool().fetchval(
+        """
+        insert into feedback (user_id, kind, title, message, app_version, context)
+        values ($1, $2, $3, $4, $5, $6)
+        returning id
+        """,
+        user_id, kind, title, message, app_version, context,
+    )
