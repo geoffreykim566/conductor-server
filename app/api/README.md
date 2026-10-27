@@ -8,7 +8,7 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 |---|---|
 | `main.py` | The app: lifespan, middleware, routers. `uvicorn app.api.main:app` |
 | `routes/chat.py` | `POST /v3/chat`: one turn, streamed as SSE |
-| `routes/register.py` | `POST /v3/register`: mint a signed conductor id |
+| `routes/register.py` | `POST /v3/register`: mint a signed conductor id, or return this Mac's existing one |
 | `routes/me.py` | `GET/PUT/DELETE /v3/me`: free-message count, profile, uninstall marker |
 | `routes/ratings.py` | `POST /v3/ratings`: thumbs on a reply's event |
 | `routes/feedback.py` | `POST /v3/feedback`: a bug report or feedback from the client's Report Bug form |
@@ -16,7 +16,7 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 | `history.py` | Trimming round-tripped history; spotting a parked research or plug-in-read turn |
 | `middleware.py` | Body-size cap (before validation); 422 logging |
 | `sse.py` | SSE framing |
-| `deps.py` | `current_user`: verifies the `X-Conductor-Id` header (the only auth) |
+| `deps.py` | `current_user`: verifies the `X-Conductor-Id` header (the only auth); `device_hash` reads `X-Conductor-Device` |
 | `admin/` | `/admin` KPI dashboard (basic auth): page, `/admin/stats`, `/admin/events`, `/admin/feedback` (+ `/{id}`, which marks it read). SQL in `queries.py`, `feedback_queries.py` |
 
 ## /v3/chat
@@ -61,6 +61,13 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 
   OpenAI isn't named and the credit state never leaks (user call, 10-18), but `code` is the native HTTP status (OpenAI's 401/429/5xx/400, or 500 for our bug; null for a timeout or a broken response) and the client shows it as `[Error 429]`, so a user's report still pins the cause (user call, 10-19). The client picks its own text from `kind`; `message` is there for older clients, which show it as is. Logged as `[sol_error] kind=… cause: HTTP …` (OpenAI's body included) or `[turn_error]` with the traceback. Without the traceback a missing migration once failed every lookup and nothing reached the logs.
 - **A failed turn gives its free message back** (`db.refund_free_message`, never below 0), a resume included, since its charge was taken on the parked request. Silent: the client just refreshes the counter. A cancel (Esc, disconnect) is *not* refunded (user call, 10-18): the pipeline task is cancelled and the message stays used. Neither is a turn parked for research and never resumed.
+- **One user per Mac** (migration 012, user call 10-26). The client sends `X-Conductor-Device`, a SHA-256 of the Mac's hardware UUID (never the raw UUID). In-app Uninstall wipes the token, so before this every reinstall was a new user with 50 fresh messages, and the admin page counted one person twice. Now:
+  - `register` with a known hash returns that user's id; an uninstalled one counts a reinstall. A known Mac that wasn't uninstalled (token lost another way) just gets its id back, uncounted.
+  - `GET /v3/me` links a user registered before hashes (v0.4.2 and older) to the Mac on its first v0.4.3 launch; the first user to claim a hash keeps it.
+  - `DELETE /v3/me` counts an uninstall, only while installed. `installed` is a generated column (`uninstalled_at` null or older than `reinstalled_at`), so a reinstall keeps the last uninstall date.
+  - The UUID stays the primary key and the token: everything points at it; the hash only finds it.
+  - A missing or malformed hash means a new user, as before, so old clients keep working. Someone editing the client could send a fake hash for fresh messages; accepted (soft cap).
+- **Admin user metrics** count Macs. Installs = users rows (unique users); Installed now = installs − uninstalls + reinstalls; Active = sent a message in the rolling window (24 h / 7 d / 30 d); Dormant (30 d) = installed and no message in 30 d; Never used = installed and no message ever. The per-day uninstall/reinstall chart sees only each user's latest of each; the totals count every cycle.
 - **Admin auth fails closed:** with no `ADMIN_PASSWORD`, nobody gets in.
 - **Feedback** (`/v3/feedback`, migration 011): `kind` bug | feedback, `title` required, `message` optional, `context` the client's dump (chat, server transcript, recent AX dumps, last card, log tail, versions; always on a bug, opt-in on feedback, no screenshot by user call 10-24). Capped at 3 MB of context and `FEEDBACK_RATE_LIMIT` per IP. Each report pings `FEEDBACK_WEBHOOK_URL` when set (Discord gets `content`, anything else Slack's `text`; `app/core/feedback_ping.py`), linking to `/admin#feedback/<id>`. A failed ping is only logged (`[feedback_ping]`).
 

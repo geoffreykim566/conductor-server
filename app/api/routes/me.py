@@ -3,7 +3,7 @@ import asyncpg
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from app.api.deps import current_user
+from app.api.deps import current_user, device_hash
 from app.core import db
 
 router = APIRouter()
@@ -15,7 +15,10 @@ class Profile(BaseModel):
 
 
 @router.get("/v3/me")
-async def get_me(user: asyncpg.Record = Depends(current_user)):
+async def get_me(user: asyncpg.Record = Depends(current_user),
+                 device: str | None = Depends(device_hash)):
+    if device and user["device_hash"] is None:
+        await db.link_device(user["id"], device)
     return {
         "free_used": user["free_used"],
         "free_limit": user["free_limit"],

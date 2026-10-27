@@ -294,17 +294,17 @@
 
   <!-- ── Installs & Signups ─────────────────────────────────── -->
   <section>
-    <div class="sec-title">Installs &amp; Signups</div>
+    <div class="sec-title">Installs · one per Mac</div>
     <div class="kpi-grid" id="installs-grid">
       <div class="placeholder">Loading…</div>
     </div>
     <div class="grid-2" style="margin-top:16px">
       <div class="chart-card">
-        <div class="chart-title">New Signups per Day</div>
+        <div class="chart-title">New Installs per Day</div>
         <div class="chart-wrap-lg"><canvas id="c-new-users"></canvas></div>
       </div>
       <div class="chart-card">
-        <div class="chart-title">Uninstalls per Day</div>
+        <div class="chart-title">Uninstalls &amp; Reinstalls per Day</div>
         <div class="chart-wrap-lg"><canvas id="c-uninstalls"></canvas></div>
       </div>
     </div>
@@ -518,12 +518,11 @@ function kpi(label, value, sub, accent='') {
 
 function renderInstalls(d) {
   const o = d.overview;
-  const totalInstalls  = (o.total_users || 0) + (o.uninstalled_users || 0);
-  const uninstallPct   = totalInstalls ? (o.uninstalled_users / totalInstalls * 100).toFixed(1) : '0.0';
   document.getElementById('installs-grid').innerHTML = [
-    kpi('Total Installs',  fmt.n(totalInstalls),        '',                                    'hi-blue'),
-    kpi('Uninstalled',     fmt.n(o.uninstalled_users),  uninstallPct + '% of installs',        'hi-amber'),
-    kpi('Net Installs',    fmt.n(o.total_users),         'installs − uninstalls',              'hi-green'),
+    kpi('Installs',      fmt.n(o.installs),      'unique users (Macs)',                     'hi-blue'),
+    kpi('Uninstalls',    fmt.n(o.uninstalls),    'all in-app uninstalls',                   'hi-amber'),
+    kpi('Reinstalls',    fmt.n(o.reinstalls),    'a known Mac came back',                   'hi-purple'),
+    kpi('Installed Now', fmt.n(o.installed_now), 'installs − uninstalls + reinstalls',      'hi-green'),
   ].join('');
 }
 
@@ -531,14 +530,19 @@ function renderEngagementKPIs(d) {
   const o = d.overview, r = d.retention;
   const d1Pct      = r.d1_eligible ? (r.came_back_d1 / r.d1_eligible * 100).toFixed(1) : '—';
   const d7Pct      = r.d7_eligible ? (r.came_back_d7 / r.d7_eligible * 100).toFixed(1) : '—';
-  const powerPct   = (r.power_users_5plus / (o.total_users || 1) * 100).toFixed(1);
+  const inst       = o.installed_now || 1;
+  const powerPct   = (r.power_users_5plus / inst * 100).toFixed(1);
   const stickiness = o.mau ? (o.dau / o.mau * 100).toFixed(1) + '%' : '—';
+  const active30   = o.installed_now - o.dormant_30d;
   document.getElementById('engagement-grid').innerHTML = [
-    kpi('Active Today', fmt.n(o.dau),        `This week ${fmt.n(o.wau)} · This month ${fmt.n(o.mau)}`, 'hi-blue'),
+    kpi('Active (24 h)', fmt.n(o.dau),       `sent a message · 7 d: ${fmt.n(o.wau)} · 30 d: ${fmt.n(o.mau)}`, 'hi-blue'),
+    kpi('Active Installs (30 d)', (active30 / inst * 100).toFixed(1) + '%', `${fmt.n(active30)} of ${fmt.n(o.installed_now)} installed sent a message`, 'hi-green'),
+    kpi('Dormant (30 d)', fmt.n(o.dormant_30d), 'installed, no message in 30 d', 'hi-amber'),
+    kpi('Never Used',    fmt.n(o.never_used), 'installed, never sent a message', 'hi-amber'),
     kpi('Stickiness',   stickiness,           'DAU / MAU',                                              'hi-green'),
     kpi('D1 Retention', d1Pct === '—' ? '—' : d1Pct + '%', 'returned day after signup'),
     kpi('D7 Retention', d7Pct === '—' ? '—' : d7Pct + '%', 'returned on day 7 after signup'),
-    kpi('Power Users',  fmt.n(r.power_users_5plus), powerPct + '% of base', 'hi-purple'),
+    kpi('Power Users',  fmt.n(r.power_users_5plus), powerPct + '% of installed · 5+ messages', 'hi-purple'),
   ].join('');
 }
 
@@ -567,7 +571,7 @@ function signal(label, value, desc, colorCls='') {
 
 function renderSignals(d) {
   const o = d.overview;
-  const tot = o.total_users || 1;
+  const tot = o.installed_now || 1;
 
   const limitPct = (o.free_limit_hit / tot * 100).toFixed(1);
   const nearPct  = (o.near_limit     / tot * 100).toFixed(1);
@@ -631,7 +635,7 @@ function renderNewUsers(ts) {
     data: {
       labels: rows.map(r => r.day),
       datasets: [{
-        label: 'New Users', data: rows.map(r => r.new_users),
+        label: 'New Installs', data: rows.map(r => r.new_users),
         backgroundColor: 'rgba(168,85,247,0.65)', borderColor: '#a855f7',
         borderWidth: 1, borderRadius: 3,
       }],
@@ -654,11 +658,15 @@ function renderUninstalls(ts) {
         label: 'Uninstalls', data: rows.map(r => r.uninstalls),
         backgroundColor: 'rgba(239,68,68,0.65)', borderColor: '#ef4444',
         borderWidth: 1, borderRadius: 3,
+      }, {
+        label: 'Reinstalls', data: rows.map(r => r.reinstalls),
+        backgroundColor: 'rgba(168,85,247,0.65)', borderColor: '#a855f7',
+        borderWidth: 1, borderRadius: 3,
       }],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: { legend: { display: true } },
       scales: { ...baseScales, y: { ...baseScales.y, ticks: { stepSize: 1 } } },
     },
   });

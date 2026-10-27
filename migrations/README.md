@@ -9,6 +9,11 @@ Plain SQL files, applied in filename order. There's no migration runner.
 - **The prod DB is the Railway service `pgvector`.** The name is from the KB era; the vector extension is gone (010). Don't rename it: `DATABASE_URL` points at its hostname.
 - **001/002/005/006/008 are comment-only.** They built the KB tables that 010 drops. They stay as no-ops so the numbering holds, and so a fresh volume doesn't need the vector extension.
 
+## One-off scripts (`oneoff/`)
+
+Data changes that run once on prod at a release, not schema: the release skill applies them after the numbered files, with a backup first and the user's go-ahead (step 5b). They are not idempotent on purpose, and the subfolder keeps them out of `docker-entrypoint-initdb.d` (it only runs top-level files).
+- `2026-10_archive_and_reset_users.sql` (v0.4.3, user call 10-26): copies `users` and `events` into schema `archive`, then empties `users`, `events` and `feedback`, so per-Mac counts start clean and everyone's free messages reset.
+
 ## Adding one
 
 Name it `00N_what_it_does.sql`, the next number. Make it idempotent where you can (`add column if not exists`), since it may be re-applied by hand. If the old server would break once it runs (it removes something the old code uses), add a header line `-- Release: after the deploy`; the release skill applies those after the new server is live. Apply it to the local DB, then rebuild.

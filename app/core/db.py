@@ -63,6 +63,39 @@ async def get_or_create_user(conductor_id: uuid.UUID) -> asyncpg.Record:
     )
 
 
+async def register_user(new_id: uuid.UUID, device_hash: str | None) -> uuid.UUID:
+    """Id for a registering install: this Mac's existing user if its hash is known, else new_id.
+
+    A known Mac that was uninstalled counts a reinstall; one that wasn't (its token lost some
+    other way, e.g. an app cleaner) just gets its id back. A null hash never conflicts.
+    """
+    return await pool().fetchval(
+        """
+        insert into users (id, free_limit, device_hash)
+        values ($1, $2, $3)
+        on conflict (device_hash) do update set
+            reinstalls     = users.reinstalls + (not users.installed)::int,
+            reinstalled_at = case when users.installed then users.reinstalled_at else now() end,
+            last_seen_at   = now()
+        returning id
+        """,
+        new_id,
+        FREE_LIMIT,
+        device_hash,
+    )
+
+
+async def link_device(user_id: uuid.UUID, device_hash: str) -> None:
+    """Attach this Mac to a user registered before device hashes; first user to claim it keeps it."""
+    try:
+        await pool().execute(
+            "update users set device_hash = $2 where id = $1 and device_hash is null",
+            user_id, device_hash,
+        )
+    except asyncpg.UniqueViolationError:
+        pass
+
+
 async def claim_free_message(user_id: uuid.UUID) -> asyncpg.Record | None:
     """Atomically consume one free-tier message; None once the cap is spent."""
     return await pool().fetchrow(
@@ -147,7 +180,7 @@ async def update_profile(user_id: uuid.UUID, experience: str | None, role: str |
 
 async def mark_uninstalled(user_id: uuid.UUID) -> None:
     await pool().execute(
-        "update users set uninstalled_at = now() where id = $1 and uninstalled_at is null",
+        "update users set uninstalled_at = now(), uninstalls = uninstalls + 1 where id = $1 and installed",
         user_id,
     )
 

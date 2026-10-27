@@ -8,10 +8,17 @@ async def stats() -> dict:
     p = db.pool()
 
     overview = dict(await p.fetchrow("""
-        WITH net AS (SELECT id FROM users WHERE uninstalled_at IS NULL)
+        WITH inst AS (SELECT id FROM users WHERE installed)
         SELECT
-            (SELECT count(*)::int FROM net)                                              AS total_users,
-            (SELECT count(*)::int FROM users WHERE uninstalled_at IS NOT NULL)           AS uninstalled_users,
+            (SELECT count(*)::int FROM users)                                            AS installs,
+            (SELECT coalesce(sum(uninstalls), 0)::int FROM users)                        AS uninstalls,
+            (SELECT coalesce(sum(reinstalls), 0)::int FROM users)                        AS reinstalls,
+            (SELECT count(*)::int FROM inst)                                             AS installed_now,
+            (SELECT count(*)::int FROM inst i WHERE NOT EXISTS (
+                SELECT 1 FROM events e WHERE e.user_id = i.id
+                  AND e.created_at > now() - interval '30 days'))                        AS dormant_30d,
+            (SELECT count(*)::int FROM inst i WHERE NOT EXISTS (
+                SELECT 1 FROM events e WHERE e.user_id = i.id))                          AS never_used,
             (SELECT count(DISTINCT user_id)::int FROM events
               WHERE created_at > now() - interval '1 day')                               AS dau,
             (SELECT count(DISTINCT user_id)::int FROM events
@@ -24,10 +31,10 @@ async def stats() -> dict:
             (SELECT count(*)::int FROM events
               WHERE created_at > now() - interval '1 day')                               AS events_today,
             (SELECT count(*)::int FROM users
-              WHERE uninstalled_at IS NULL AND free_used >= free_limit)                  AS free_limit_hit,
+              WHERE installed AND free_used >= free_limit)                              AS free_limit_hit,
             (SELECT count(*)::int FROM users
-              WHERE uninstalled_at IS NULL
-                AND free_used::float / NULLIF(free_limit, 0) >= 0.8)                    AS near_limit
+              WHERE installed
+                AND free_used::float / NULLIF(free_limit, 0) >= 0.8)                     AS near_limit
     """))
 
     cost = dict(await p.fetchrow("""
@@ -56,11 +63,11 @@ async def stats() -> dict:
 
     experience_rows = await p.fetch("""
         SELECT coalesce(experience, 'unknown') AS label, count(*)::int AS count
-        FROM users WHERE uninstalled_at IS NULL GROUP BY 1 ORDER BY 2 DESC
+        FROM users WHERE installed GROUP BY 1 ORDER BY 2 DESC
     """)
     role_rows = await p.fetch("""
         SELECT coalesce(role, 'unknown') AS label, count(*)::int AS count
-        FROM users WHERE uninstalled_at IS NULL GROUP BY 1 ORDER BY 2 DESC
+        FROM users WHERE installed GROUP BY 1 ORDER BY 2 DESC
     """)
     source_rows = await p.fetch("""
         SELECT source AS label, count(*)::int AS count
@@ -87,7 +94,7 @@ async def stats() -> dict:
                     WHEN free_used <= 20         THEN 16
                     ELSE 21
                 END AS sort_key
-            FROM users WHERE uninstalled_at IS NULL
+            FROM users WHERE installed
         )
         SELECT bucket, sort_key, count(*)::int AS users
         FROM bucketed
@@ -118,7 +125,7 @@ async def stats() -> dict:
             SELECT user_id FROM events GROUP BY user_id HAVING count(*) >= 5
         ) t
         JOIN users u ON u.id = t.user_id
-        WHERE u.uninstalled_at IS NULL
+        WHERE u.installed
     """)
 
     events_by_day = await p.fetch("""
@@ -138,13 +145,17 @@ async def stats() -> dict:
         WHERE created_at > now() - interval '30 days'
         GROUP BY 1 ORDER BY 1
     """)
+    # Each user's latest uninstall and reinstall only: earlier cycles stay in the counters, not here.
     uninstalls_by_day = await p.fetch("""
-        SELECT
-            date_trunc('day', uninstalled_at)::date::text AS day,
-            count(*)::int                                  AS uninstalls
-        FROM users
-        WHERE uninstalled_at > now() - interval '30 days'
-        GROUP BY 1 ORDER BY 1
+        SELECT day::text, sum(u)::int AS uninstalls, sum(r)::int AS reinstalls
+        FROM (
+            SELECT date_trunc('day', uninstalled_at)::date AS day, 1 AS u, 0 AS r
+              FROM users WHERE uninstalled_at > now() - interval '30 days'
+            UNION ALL
+            SELECT date_trunc('day', reinstalled_at)::date, 0, 1
+              FROM users WHERE reinstalled_at > now() - interval '30 days'
+        ) t
+        GROUP BY day ORDER BY day
     """)
     cost_by_day = await p.fetch("""
         SELECT
