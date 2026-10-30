@@ -24,7 +24,7 @@ RESEARCH_EFFORT = "low"
 # 90s timed out every real research call (Claude era); kept as the ceiling.
 RESEARCH_CALL_TIMEOUT_S = float(os.environ.get("RESEARCH_CALL_TIMEOUT_S", "90.0"))
 
-FREE_LIMIT = int(os.environ.get("FREE_LIMIT", "50"))
+FREE_LIMIT = int(os.environ.get("FREE_LIMIT", "100"))
 
 # /admin basic auth. An unset password locks everyone out.
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
