@@ -472,6 +472,8 @@ const fmt = {
   pct: (v, dec=1) => (v == null ? '—' : Number(v).toFixed(dec) + '%'),
   usd: v => (v == null ? '—' : '$' + Number(v).toFixed(4)),
   ms:  v => (v == null ? '—' : Number(v).toLocaleString() + ' ms'),
+  // sv-SE prints "YYYY-MM-DD HH:MM:SS"; Pacific matches the server's day grouping.
+  pt:  v => (v ? new Date(v).toLocaleString('sv-SE', { timeZone: 'America/Los_Angeles' }) : '—'),
 };
 
 function mkChart(id, cfg) {
@@ -923,7 +925,7 @@ function renderEventsTable(data) {
     r.rating ===  1 ? '<span class="r-up">👍</span>' :
     r.rating === -1 ? '<span class="r-down">👎</span>' : '<span style="color:var(--muted)">—</span>';
 
-  const tsStr = ts => ts ? ts.replace('T',' ').replace(/\.\d+.*$/,'') : '—';
+  const tsStr = fmt.pt;
   const trunc = (s, n=70) => s ? (s.length > n ? s.slice(0, n) + '…' : s) : '';
 
   const tbody = rows.map((r, i) => `
@@ -944,7 +946,7 @@ function renderEventsTable(data) {
     <div class="ev-table-wrap">
       <table class="ev-table">
         <thead><tr>
-          <th>Time (UTC)</th><th>User</th><th>Model</th><th>Type</th>
+          <th>Time (PT)</th><th>User</th><th>Model</th><th>Type</th>
           <th>Rating</th><th>Tokens in/out</th><th>Latency</th>
           <th>Prompt</th><th>Response</th><th></th>
         </tr></thead>
@@ -965,7 +967,7 @@ function renderEventsTable(data) {
 
 function openEvModal(idx) {
   const r = _evRows[idx];
-  const ts = r.created_at ? r.created_at.replace('T',' ').replace(/\.\d+.*$/,'') + ' UTC' : '—';
+  const ts = r.created_at ? fmt.pt(r.created_at) + ' PT' : '—';
   const ratingText = r.rating === 1 ? '👍 Positive' : r.rating === -1 ? '👎 Negative' : 'Not rated';
 
   document.getElementById('ev-modal-body').innerHTML = `
@@ -1022,7 +1024,7 @@ function renderFeedbackTable(data) {
     document.getElementById('fb-pagination').innerHTML = '';
     return;
   }
-  const tsStr = ts => ts.replace('T',' ').replace(/\.\d+.*$/,'');
+  const tsStr = fmt.pt;
   const trunc = (s, n=90) => s ? (s.length > n ? s.slice(0, n) + '…' : s) : '';
   const tbody = rows.map(r => `
     <tr class="${r.is_read ? '' : 'fb-unread'}">
@@ -1039,7 +1041,7 @@ function renderFeedbackTable(data) {
     <div class="ev-table-wrap">
       <table class="ev-table">
         <thead><tr>
-          <th>Time (UTC)</th><th>Type</th><th>Title</th><th>Message</th>
+          <th>Time (PT)</th><th>Type</th><th>Title</th><th>Message</th>
           <th>Version</th><th>Context</th><th>User</th><th></th>
         </tr></thead>
         <tbody>${tbody}</tbody>
@@ -1072,7 +1074,7 @@ async function openFeedback(id) {
   document.getElementById('ev-modal-body').innerHTML = `
     <div class="ev-modal-meta">
       <span class="fb-kind-${r.kind}">${r.kind === 'bug' ? 'Bug' : 'Feedback'}</span>
-      <span>${r.created_at.replace('T',' ').replace(/\.\d+.*$/,'')} UTC</span>
+      <span>${fmt.pt(r.created_at)} PT</span>
       <span>User: ${escHtml(r.user_id)}</span>
       ${versions || `<span>v${escHtml(r.app_version || '?')}</span>`}
     </div>

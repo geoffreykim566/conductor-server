@@ -130,7 +130,7 @@ async def stats() -> dict:
 
     events_by_day = await p.fetch("""
         SELECT
-            date_trunc('day', created_at)::date::text AS day,
+            (created_at AT TIME ZONE 'America/Los_Angeles')::date::text AS day,
             count(*)::int                              AS events,
             count(DISTINCT user_id)::int               AS active_users
         FROM events
@@ -139,7 +139,7 @@ async def stats() -> dict:
     """)
     new_users_by_day = await p.fetch("""
         SELECT
-            date_trunc('day', created_at)::date::text AS day,
+            (created_at AT TIME ZONE 'America/Los_Angeles')::date::text AS day,
             count(*)::int                              AS new_users
         FROM users
         WHERE created_at > now() - interval '30 days'
@@ -149,17 +149,17 @@ async def stats() -> dict:
     uninstalls_by_day = await p.fetch("""
         SELECT day::text, sum(u)::int AS uninstalls, sum(r)::int AS reinstalls
         FROM (
-            SELECT date_trunc('day', uninstalled_at)::date AS day, 1 AS u, 0 AS r
+            SELECT (uninstalled_at AT TIME ZONE 'America/Los_Angeles')::date AS day, 1 AS u, 0 AS r
               FROM users WHERE uninstalled_at > now() - interval '30 days'
             UNION ALL
-            SELECT date_trunc('day', reinstalled_at)::date, 0, 1
+            SELECT (reinstalled_at AT TIME ZONE 'America/Los_Angeles')::date, 0, 1
               FROM users WHERE reinstalled_at > now() - interval '30 days'
         ) t
         GROUP BY day ORDER BY day
     """)
     cost_by_day = await p.fetch("""
         SELECT
-            date_trunc('day', created_at)::date::text                           AS day,
+            (created_at AT TIME ZONE 'America/Los_Angeles')::date::text                           AS day,
             coalesce(round(sum(usd_cost)::numeric, 4), 0)::float                AS cost_usd
         FROM event_costs
         WHERE created_at > now() - interval '30 days'
@@ -167,7 +167,7 @@ async def stats() -> dict:
     """)
     cost_per_user_by_day = await p.fetch("""
         SELECT
-            date_trunc('day', created_at)::date::text                                              AS day,
+            (created_at AT TIME ZONE 'America/Los_Angeles')::date::text                                              AS day,
             coalesce(round((sum(usd_cost) / NULLIF(count(DISTINCT user_id), 0))::numeric, 6), 0)::float AS cost_per_dau
         FROM event_costs
         WHERE created_at > now() - interval '30 days'
@@ -175,7 +175,7 @@ async def stats() -> dict:
     """)
     tokens_by_day = await p.fetch("""
         SELECT
-            date_trunc('day', created_at)::date::text AS day,
+            (created_at AT TIME ZONE 'America/Los_Angeles')::date::text AS day,
             sum(tokens_in)::bigint                     AS tokens_in,
             sum(tokens_out)::bigint                    AS tokens_out
         FROM events
@@ -258,10 +258,10 @@ async def events_log(
         conditions.append(f"user_id::text = ${len(params)}")
     if from_date:
         params.append(dt_date.fromisoformat(from_date))
-        conditions.append(f"created_at::date >= ${len(params)}")
+        conditions.append(f"(created_at AT TIME ZONE 'America/Los_Angeles')::date >= ${len(params)}")
     if to_date:
         params.append(dt_date.fromisoformat(to_date))
-        conditions.append(f"created_at::date <= ${len(params)}")
+        conditions.append(f"(created_at AT TIME ZONE 'America/Los_Angeles')::date <= ${len(params)}")
     if event_type:
         params.append(event_type)
         conditions.append(f"type = ${len(params)}")
