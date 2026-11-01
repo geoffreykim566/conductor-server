@@ -26,7 +26,9 @@ def client():
 
 @pytest.fixture(autouse=True)
 def secret():
-    with patch.object(signing, "CONDUCTOR_ID_SECRET", "test-secret"):
+    # The waitlist gate has its own tests (test_register_gate.py).
+    with patch.object(signing, "CONDUCTOR_ID_SECRET", "test-secret"), \
+            patch.object(register.config, "WAITLIST_REQUIRED", False):
         yield
 
 

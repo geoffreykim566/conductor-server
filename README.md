@@ -28,7 +28,7 @@ docker compose exec app python -m pytest             # unit tests
 docker compose exec app python -m evals.battery.runner > test_runs/$(date +%F)/run.log   # battery
 ```
 
-`.env.local` holds the secrets (`OPENAI_API_KEY` for Sol and research, `CONDUCTOR_ID_SECRET`, `ADMIN_PASSWORD`). Every setting is in `app/core/config.py`.
+`.env.local` holds the secrets (`OPENAI_API_KEY` for Sol and research, `CONDUCTOR_ID_SECRET`, `ADMIN_PASSWORD`, optionally `RESEND_API_KEY` for invite emails). Every setting is in `app/core/config.py`.
 
 ## Quirks
 
@@ -37,7 +37,7 @@ docker compose exec app python -m evals.battery.runner > test_runs/$(date +%F)/r
 - **Second stack for a branch or worktree:** `docker compose -p <name> -f docker-compose.yml -f docker-compose.standalone.yml up -d --build`. It has no ports, bind-mounts the whole checkout with `PYTHONPATH=/srv` (so `app/` edits are live), and uses its own DB volume (seed it once). Drive it with `docker compose -p <name> -f docker-compose.yml -f docker-compose.standalone.yml exec -T app ...`.
 - **Stale code before new theories.** If behaviour doesn't match the code, first check the image was rebuilt (routes are read from `seed/` at import).
 - **Log with `log.warning("[marker] ...")`, never `log.info`.** The root logger isn't configured, so info lines never reach `docker compose logs`; grep-able `[markers]` are the convention.
-- **Stateless.** Nothing is stored between requests except users/events. The client round-trips the full history (`app/api/README.md`).
+- **Stateless.** Nothing is stored between requests except users, events, feedback and the waitlist. The client round-trips the full history (`app/api/README.md`).
 
 ## Deploying
 
