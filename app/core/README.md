@@ -12,6 +12,8 @@ Shared infrastructure that every other package imports. Nothing in here imports 
 | `ratelimit.py` | slowapi limiter keyed by client IP |
 | `budget.py` | Daily-spend circuit breaker |
 | `feedback_ping.py` | Optional webhook ping per bug report / feedback (`FEEDBACK_WEBHOOK_URL`) |
+| `waitlist.py` | Waitlist queries outside admin: email normalizing, signup, claiming an install slot at register |
+| `invite_mail.py` | The invite email, one recipient per send through Resend (`RESEND_API_KEY`) |
 
 ## Quirks & why
 

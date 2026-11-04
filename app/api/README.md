@@ -8,16 +8,17 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 |---|---|
 | `main.py` | The app: lifespan, middleware, routers. `uvicorn app.api.main:app` |
 | `routes/chat.py` | `POST /v3/chat`: one turn, streamed as SSE |
-| `routes/register.py` | `POST /v3/register`: mint a signed conductor id, or return this Mac's existing one |
+| `routes/register.py` | `POST /v3/register`: mint a signed conductor id, or return this Mac's existing one; a new Mac needs an approved waitlist email |
 | `routes/me.py` | `GET/PUT/DELETE /v3/me`: free-message count, profile, uninstall marker |
 | `routes/ratings.py` | `POST /v3/ratings`: thumbs on a reply's event |
 | `routes/feedback.py` | `POST /v3/feedback`: a bug report or feedback from the client's Report Bug form |
+| `routes/waitlist.py` | `POST /v3/waitlist`: the landing page's signup form (no auth, CORS for the site) |
 | `schemas.py` | `ChatRequest` and its limits; the history shape whitelist |
 | `history.py` | Trimming round-tripped history; spotting a parked research or plug-in-read turn |
 | `middleware.py` | Body-size cap (before validation); 422 logging |
 | `sse.py` | SSE framing |
 | `deps.py` | `current_user`: verifies the `X-Conductor-Id` header (the only auth); `device_hash` reads `X-Conductor-Device` |
-| `admin/` | `/admin` KPI dashboard (basic auth): page, `/admin/stats`, `/admin/events`, `/admin/feedback` (+ `/{id}`, which marks it read). SQL in `queries.py`, `feedback_queries.py` |
+| `admin/` | `/admin` KPI dashboard (basic auth): page, `/admin/stats`, `/admin/events`, `/admin/feedback` (+ `/{id}`, which marks it read), `/admin/waitlist` (+ `/action`, `.csv`). SQL in `queries.py`, `feedback_queries.py`, `waitlist_queries.py` |
 
 ## /v3/chat
 
@@ -71,6 +72,14 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 - **Admin days and times are Pacific** (`America/Los_Angeles`, user call 10-30): the per-day charts and the events date filter group by the Pacific date, and the tables show PT. The rolling windows (24 h / 7 d / 30 d, "today") are unchanged.
 - **Admin auth fails closed:** with no `ADMIN_PASSWORD`, nobody gets in.
 - **Feedback** (`/v3/feedback`, migration 011): `kind` bug | feedback, `title` required, `message` optional, `context` the client's dump (chat, server transcript, recent AX dumps, last card, log tail, versions; always on a bug, opt-in on feedback, no screenshot by user call 10-24). Capped at 3 MB of context and `FEEDBACK_RATE_LIMIT` per IP. Each report pings `FEEDBACK_WEBHOOK_URL` when set (Discord gets `content`, anything else Slack's `text`; `app/core/feedback_ping.py`), linking to `/admin#feedback/<id>`. A failed ping is only logged (`[feedback_ping]`).
+- **Waitlist** (migration 014, user calls 10-31). Signup → the admin approves → each approved address gets its own invite email with the download link → a **new** Mac registers only with an approved email, at most `WAITLIST_INSTALL_CAP` (2) Macs each.
+  - **Not linked to `users`** (user call, privacy): the waitlist row keeps the email and an install count, and no user row stores an email. Linking would tie every prompt and bug dump to a named person. So "move back to waitlist" stops new installs only; a Mac already registered keeps working.
+  - **A known Mac skips the gate** (`db.known_device`), so a reinstall or a lost token never uses a slot, and every Mac registered before v0.4.4 keeps working. A Mac with no hardware hash counts a slot on every register; the admin's Reset installs covers it.
+  - **Refusals are 403s with a reason** in `detail`: `email_required`, `not_on_waitlist`, `not_approved`, `install_limit`. The client words them. Register's limit is 20/day (was 5) so mistyped emails can be retried.
+  - **Signups never reveal who's on the list:** new, repeat and honeypot (`company` filled) signups all get `{"ok": true}`. `source` is the page's `utm_source` or referrer host.
+  - **Invites go one recipient per email** through Resend (`app/core/invite_mail.py`), sent in a background task ~0.6 s apart, so no address can be exposed to another. `emailed_at` is set only on success; a failure is logged `[invite_mail]` and the row shows "Not yet". Without `RESEND_API_KEY` the email actions return 409 and change nothing.
+  - **CORS** is on for `CORS_ORIGINS` (the site, plus `:8765` for local previews), POST only. Every other route needs a signed id anyway.
+  - `WAITLIST_REQUIRED=0` turns the gate off (old behaviour).
 
 ## Adding a route
 

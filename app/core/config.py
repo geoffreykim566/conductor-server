@@ -4,8 +4,10 @@ import os
 
 CONDUCTOR_ID_SECRET = os.environ.get("CONDUCTOR_ID_SECRET", "")
 RATE_LIMIT = os.environ.get("RATE_LIMIT", "10/minute")
-REGISTER_RATE_LIMIT = os.environ.get("REGISTER_RATE_LIMIT", "5/day")
+# 20, not 5: a mistyped email on the setup screen is retried through register.
+REGISTER_RATE_LIMIT = os.environ.get("REGISTER_RATE_LIMIT", "20/day")
 FEEDBACK_RATE_LIMIT = os.environ.get("FEEDBACK_RATE_LIMIT", "10/hour")
+WAITLIST_RATE_LIMIT = os.environ.get("WAITLIST_RATE_LIMIT", "10/hour")
 
 # Trailing-24h spend (event_costs) above this makes /v3/chat return 503.
 DAILY_BUDGET_USD = float(os.environ.get("DAILY_BUDGET_USD", "10"))
@@ -37,3 +39,18 @@ ADMIN_BASE_URL = os.environ.get("ADMIN_BASE_URL", "https://api.askconductor.ai")
 
 # Cap on round-tripped history (api/history.py trims to this).
 MAX_HISTORY_MESSAGES = int(os.environ.get("MAX_HISTORY_MESSAGES", "60"))
+
+# Waitlist gate: a new Mac registers only with an approved email, at most this many Macs each.
+WAITLIST_REQUIRED = os.environ.get("WAITLIST_REQUIRED", "1") == "1"
+WAITLIST_INSTALL_CAP = int(os.environ.get("WAITLIST_INSTALL_CAP", "2"))
+# The landing page posts the signup form cross-origin; local previews serve on :8765.
+CORS_ORIGINS = os.environ.get(
+    "CORS_ORIGINS",
+    "https://askconductor.ai,https://www.askconductor.ai,http://127.0.0.1:8765,http://localhost:8765",
+).split(",")
+
+# Invite emails (Resend). Unset key: approving works, emailing is refused.
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+INVITE_FROM = os.environ.get("INVITE_FROM", "Conductor <hello@askconductor.ai>")
+INVITE_REPLY_TO = os.environ.get("INVITE_REPLY_TO", "hello@askconductor.ai")
+DOWNLOAD_URL = os.environ.get("DOWNLOAD_URL", "https://askconductor.ai/download")

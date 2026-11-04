@@ -85,6 +85,10 @@ async def register_user(new_id: uuid.UUID, device_hash: str | None) -> uuid.UUID
     )
 
 
+async def known_device(device_hash: str) -> bool:
+    return bool(await pool().fetchval("select 1 from users where device_hash = $1", device_hash))
+
+
 async def link_device(user_id: uuid.UUID, device_hash: str) -> None:
     """Attach this Mac to a user registered before device hashes; first user to claim it keeps it."""
     try:

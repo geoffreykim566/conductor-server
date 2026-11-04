@@ -3,12 +3,15 @@ behind basic auth. Ported from v1 (README.md)."""
 import secrets
 import uuid
 from pathlib import Path
+from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi.responses import HTMLResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from pydantic import BaseModel, Field
 
-from app.api.admin import feedback_queries, queries
+from app.api.admin import feedback_queries, queries, waitlist_queries
+from app.core import invite_mail
 from app.core.config import ADMIN_PASSWORD, ADMIN_USER
 
 router = APIRouter()
@@ -68,3 +71,35 @@ async def feedback_detail(fid: uuid.UUID, _: None = Depends(_require_admin)):
     if row is None:
         raise HTTPException(status_code=404, detail="not_found")
     return row
+
+
+@router.get("/admin/waitlist", include_in_schema=False)
+async def waitlist_list(_: None = Depends(_require_admin),
+                        status: Literal["pending", "approved"] = "pending"):
+    return await waitlist_queries.waitlist_list(status)
+
+
+class WaitlistAction(BaseModel):
+    action: Literal["approve", "approve_email", "email", "unapprove", "reset_installs", "delete"]
+    ids: list[uuid.UUID] = Field(..., min_length=1, max_length=1000)
+
+
+@router.post("/admin/waitlist/action", include_in_schema=False)
+async def waitlist_action(a: WaitlistAction, background: BackgroundTasks,
+                          _: None = Depends(_require_admin)):
+    sends = a.action in ("approve_email", "email")
+    if sends and not invite_mail.configured():
+        raise HTTPException(status_code=409, detail="email_not_configured")
+    changed = await waitlist_queries.apply("approve" if sends else a.action, a.ids) \
+        if a.action != "email" else 0
+    targets = await waitlist_queries.to_email(a.ids, only_new=a.action == "approve_email") \
+        if sends else []
+    if targets:
+        background.add_task(waitlist_queries.send_invites, targets)
+    return {"changed": changed, "emailing": len(targets)}
+
+
+@router.get("/admin/waitlist.csv", include_in_schema=False)
+async def waitlist_csv(_: None = Depends(_require_admin)):
+    return Response(await waitlist_queries.export_csv(), media_type="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=waitlist.csv"})

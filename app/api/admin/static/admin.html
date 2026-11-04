@@ -236,6 +236,20 @@
     }
     .ev-modal-box details summary { cursor: pointer; }
 
+    /* ── Waitlist view ───────────────────────────────────────── */
+    #view-waitlist {
+      max-width: 1380px; margin: 0 auto; padding: 28px 24px 56px;
+      display: none;
+    }
+    .wl-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .wl-bar .spacer { flex: 1; }
+    .wl-seg.active { border-color: var(--blue); color: var(--blue); }
+    .wl-note { color: var(--muted); font-size: 13px; }
+    .wl-warn { color: var(--amber); font-size: 13px; margin-bottom: 12px; }
+    .btn-sm:disabled { opacity: 0.4; cursor: default; }
+    .btn-danger { color: var(--red); }
+    .ev-table td.wl-check, .ev-table th.wl-check { width: 32px; }
+
     /* ── Event detail modal ──────────────────────────────────── */
     #ev-modal {
       display: none; position: fixed; inset: 0; z-index: 200;
@@ -288,6 +302,7 @@
   <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
   <button class="tab-btn" data-tab="events" onclick="switchTab('events')">Events Log</button>
   <button class="tab-btn" data-tab="feedback" onclick="switchTab('feedback')">Feedback<span id="fb-count"></span></button>
+  <button class="tab-btn" data-tab="waitlist" onclick="switchTab('waitlist')">Waitlist</button>
 </nav>
 
 <main id="view-dashboard">
@@ -432,6 +447,21 @@
   </div>
   <div id="fb-table-wrap"><div class="placeholder">Loading…</div></div>
   <div id="fb-pagination"></div>
+</div>
+
+<!-- Waitlist view -->
+<div id="view-waitlist">
+  <div id="wl-warn"></div>
+  <div class="wl-bar">
+    <button class="btn-sm wl-seg active" data-status="pending" onclick="loadWaitlist('pending')">Waitlist</button>
+    <button class="btn-sm wl-seg" data-status="approved" onclick="loadWaitlist('approved')">Approved</button>
+    <span class="wl-note" id="wl-summary"></span>
+    <span class="spacer"></span>
+    <span id="wl-actions"></span>
+    <a class="btn-sm" href="/admin/waitlist.csv" style="text-decoration:none">Export CSV</a>
+  </div>
+  <div class="wl-note" id="wl-status" style="margin-bottom:10px"></div>
+  <div id="wl-table-wrap"><div class="placeholder">Loading…</div></div>
 </div>
 
 <!-- Event detail modal (also shows one feedback report) -->
@@ -872,8 +902,10 @@ function switchTab(tab) {
   document.getElementById('view-dashboard').style.display = tab === 'dashboard' ? 'block' : 'none';
   document.getElementById('view-events').style.display    = tab === 'events'    ? 'block' : 'none';
   document.getElementById('view-feedback').style.display  = tab === 'feedback'  ? 'block' : 'none';
+  document.getElementById('view-waitlist').style.display  = tab === 'waitlist'  ? 'block' : 'none';
   if (tab === 'events' && !_evLoaded) loadEvents(1);
   if (tab === 'feedback') loadFeedback(1);
+  if (tab === 'waitlist') loadWaitlist(_wlStatus);
 }
 
 // ── Events log ───────────────────────────────────────────────
@@ -1089,6 +1121,113 @@ async function openFeedback(id) {
       '<div class="ev-sec">No context attached</div>'}`;
   document.getElementById('ev-modal').classList.add('open');
   loadFeedback(_fbPage);
+}
+
+// ── Waitlist ───────────────────────────────────────────────
+var _wlStatus = 'pending';
+var _wlRows = [];
+
+const WL_ACTIONS = {
+  pending:  [['approve_email', 'Approve and email'], ['approve', 'Approve only'], ['delete', 'Delete', true]],
+  approved: [['email', 'Email again'], ['unapprove', 'Move back to waitlist'],
+             ['reset_installs', 'Reset installs'], ['delete', 'Delete', true]],
+};
+const WL_VERB = {
+  approve_email: 'Approve and email', approve: 'Approve', delete: 'Permanently delete',
+  email: 'Email again', unapprove: 'Move back to the waitlist', reset_installs: 'Reset installs for',
+};
+
+async function loadWaitlist(status) {
+  _wlStatus = status;
+  document.querySelectorAll('.wl-seg').forEach(b => b.classList.toggle('active', b.dataset.status === status));
+  try {
+    const res = await fetch('/admin/waitlist?status=' + status);
+    if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+    renderWaitlist(await res.json());
+  } catch (e) {
+    document.getElementById('wl-table-wrap').innerHTML =
+      `<div class="placeholder" style="color:var(--red)">Error: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function wlSelected() {
+  return [...document.querySelectorAll('.wl-row:checked')].map(c => c.value);
+}
+
+function wlSync() {
+  const n = wlSelected().length;
+  document.querySelectorAll('.wl-act').forEach(b => b.disabled = !n);
+  const all = document.getElementById('wl-all');
+  if (all) all.checked = n > 0 && n === _wlRows.length;
+}
+
+function wlToggleAll(on) {
+  document.querySelectorAll('.wl-row').forEach(c => c.checked = on);
+  wlSync();
+}
+
+function renderWaitlist(d) {
+  const c = d.counts;
+  _wlRows = d.rows;
+  document.querySelector('.wl-seg[data-status=pending]').textContent = `Waitlist (${c.pending})`;
+  document.querySelector('.wl-seg[data-status=approved]').textContent = `Approved (${c.approved})`;
+  document.getElementById('wl-summary').textContent = `${c.emailed} emailed · ${c.installed} installed`;
+  document.getElementById('wl-warn').innerHTML = d.email_configured ? '' :
+    '<div class="wl-warn">Emailing is off: RESEND_API_KEY isn\'t set. Approving still works.</div>';
+  document.getElementById('wl-actions').innerHTML = WL_ACTIONS[_wlStatus].map(([a, label, danger]) =>
+    `<button class="btn-sm wl-act${danger ? ' btn-danger' : ''}" disabled onclick="wlAct('${a}')">${label}</button>`
+  ).join(' ');
+  if (!d.rows.length) {
+    document.getElementById('wl-table-wrap').innerHTML =
+      `<div class="placeholder">${_wlStatus === 'pending' ? 'Nobody waiting.' : 'Nobody approved yet.'}</div>`;
+    return;
+  }
+  const t = s => s ? fmt.pt(s) : '—';
+  const approved = _wlStatus === 'approved';
+  const tbody = d.rows.map(r => `
+    <tr>
+      <td class="wl-check"><input type="checkbox" class="wl-row" value="${r.id}" onchange="wlSync()"></td>
+      <td>${escHtml(r.email)}</td>
+      <td class="ev-ts">${t(r.created_at)}</td>
+      <td style="font-size:12px">${escHtml(r.source || '—')}</td>
+      ${approved ? `
+      <td class="ev-ts">${t(r.approved_at)}</td>
+      <td class="ev-ts">${r.emailed_at ? t(r.emailed_at) : '<span style="color:var(--amber)">Not yet</span>'}</td>
+      <td>${r.installs}</td>` : ''}
+    </tr>`).join('');
+  document.getElementById('wl-table-wrap').innerHTML = `
+    <div class="ev-table-wrap">
+      <table class="ev-table">
+        <thead><tr>
+          <th class="wl-check"><input type="checkbox" id="wl-all" onchange="wlToggleAll(this.checked)" title="Select all"></th>
+          <th>Email</th><th>Signed up (PT)</th><th>Source</th>
+          ${approved ? '<th>Approved (PT)</th><th>Emailed (PT)</th><th>Macs</th>' : ''}
+        </tr></thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    </div>`;
+}
+
+async function wlAct(action) {
+  const ids = wlSelected();
+  if (!ids.length) return;
+  const who = ids.length === 1 ? _wlRows.find(r => r.id === ids[0]).email : `${ids.length} people`;
+  if (!confirm(`${WL_VERB[action]} ${who}?`)) return;
+  const res = await fetch('/admin/waitlist/action', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({action, ids}),
+  });
+  const st = document.getElementById('wl-status');
+  if (!res.ok) {
+    const detail = (await res.json().catch(() => ({}))).detail;
+    st.innerHTML = `<span style="color:var(--red)">${detail === 'email_not_configured'
+      ? 'Emailing is off (RESEND_API_KEY isn\'t set). Nothing was changed.' : 'Failed: ' + res.status}</span>`;
+    return;
+  }
+  const r = await res.json();
+  st.textContent = r.emailing ? `Sending ${r.emailing} email${r.emailing > 1 ? 's' : ''}, one at a time. The Emailed column fills in as they go.` : `Done (${r.changed} changed).`;
+  loadWaitlist(_wlStatus);
+  if (r.emailing) setTimeout(() => loadWaitlist(_wlStatus), Math.min(60000, 1500 + r.emailing * 800));
 }
 
 function escHtml(s) {
