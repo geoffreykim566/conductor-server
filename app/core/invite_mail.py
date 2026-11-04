@@ -8,16 +8,16 @@ from app.core import config
 log = logging.getLogger(__name__)
 
 RESEND_URL = "https://api.resend.com/emails"
-SUBJECT = "You're in: Conductor for Logic Pro"
+SUBJECT = "You're in! Download Conductor for Logic Pro"
 
 
 def body_text(email: str) -> str:
     return (
-        "You're off the waitlist. Thanks for waiting.\n\n"
+        "You're off the waitlist!\n\n"
         f"Download Conductor here: {config.DOWNLOAD_URL}\n\n"
-        f"When the app opens, enter this email address ({email}) to get started. "
-        f"It works on up to {config.WAITLIST_INSTALL_CAP} Macs.\n\n"
-        "If anything goes wrong, just reply to this email.\n\n"
+        "If anything goes wrong or you have any questions, just reply to this email.\n\n"
+        "Thank you for waiting!\n\n"
+        "Sincerely,\n"
         "Conductor"
     )
 
