@@ -1,4 +1,4 @@
-"""SQL behind the admin Funnel tab: visits → signups → invites → installs → use, by day,
+"""SQL behind the admin Website tab: visits → signups → invites → installs → use, by day,
 channel and country. Every stage counts what happened in the period (not a cohort)."""
 from collections import defaultdict
 

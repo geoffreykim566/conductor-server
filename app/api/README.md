@@ -84,7 +84,7 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 
 ## Funnel
 
-Visits → signups → invites → installs → use, in the admin Funnel tab (migration 015, user calls 11-06). The site's beacon is in `website/visit.js` (`website/README.md`, Visit counting).
+Visits → signups → invites → installs → use, in the admin Website tab (migration 015, user calls 11-06). The site's beacon is in `website/visit.js` (`website/README.md`, Visit counting).
 
 - **Our own counter, not Cloudflare Web Analytics** (user call): Cloudflare loses the referrer from Instagram and TikTok's in-app browsers, drops `utm_source`, and can't line visits up with signups and installs.
 - **What counts as a visit:** the page was looked at (~2 s visible, or a scroll, tap or key), and the user agent isn't a bot, link previewer or headless browser, and `navigator.webdriver` is false (`app/core/channel.py`). Dropped views answer 204 like the rest and store nothing. A full headless Chrome with a faked agent and no automation flag still gets through; accepted.
