@@ -243,13 +243,26 @@
     }
     .wl-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
     .wl-bar .spacer { flex: 1; }
-    .wl-seg.active { border-color: var(--blue); color: var(--blue); }
+    .wl-seg.active, .fn-seg.active { border-color: var(--blue); color: var(--blue); }
     .wl-note { color: var(--muted); font-size: 13px; }
     .wl-warn { color: var(--amber); font-size: 13px; margin-bottom: 12px; }
     .btn-sm:disabled { opacity: 0.4; cursor: default; }
     .btn-danger { color: var(--red); }
     .ev-table td.wl-check, .ev-table th.wl-check { width: 32px; }
 
+    /* ── Funnel view ─────────────────────────────────────────── */
+    #view-funnel {
+      max-width: 1380px; margin: 0 auto; padding: 28px 24px 56px;
+      display: none;
+    }
+    .fn-steps { display: grid; gap: 8px; }
+    .fn-step { display: grid; grid-template-columns: 210px 80px 1fr 130px; gap: 12px; align-items: center; font-size: 13px; }
+    .fn-step .n { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .fn-step .pct { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .fn-bar { height: 14px; border-radius: 4px; background: var(--surface2); overflow: hidden; }
+    .fn-bar div { height: 100%; background: var(--blue); border-radius: 4px; }
+    .fn-desc { color: var(--muted); font-size: 11px; }
+    .ev-table td.num, .ev-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
     /* ── Event detail modal ──────────────────────────────────── */
     #ev-modal {
       display: none; position: fixed; inset: 0; z-index: 200;
@@ -300,6 +313,7 @@
 
 <nav id="tab-nav">
   <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+  <button class="tab-btn" data-tab="funnel" onclick="switchTab('funnel')">Funnel</button>
   <button class="tab-btn" data-tab="events" onclick="switchTab('events')">Events Log</button>
   <button class="tab-btn" data-tab="feedback" onclick="switchTab('feedback')">Feedback<span id="fb-count"></span></button>
   <button class="tab-btn" data-tab="waitlist" onclick="switchTab('waitlist')">Waitlist</button>
@@ -447,6 +461,45 @@
   </div>
   <div id="fb-table-wrap"><div class="placeholder">Loading…</div></div>
   <div id="fb-pagination"></div>
+</div>
+
+<!-- Funnel view -->
+<div id="view-funnel">
+  <div class="wl-bar">
+    <button class="btn-sm fn-seg" data-days="7" onclick="loadFunnel(7)">7 days</button>
+    <button class="btn-sm fn-seg active" data-days="30" onclick="loadFunnel(30)">30 days</button>
+    <button class="btn-sm fn-seg" data-days="90" onclick="loadFunnel(90)">90 days</button>
+    <button class="btn-sm fn-seg" data-days="0" onclick="loadFunnel(0)">All time</button>
+    <span class="wl-note">Days in Pacific time. Each step counts what happened in the period, not one group of people followed through.</span>
+  </div>
+  <section>
+    <div class="kpi-grid" id="fn-kpis"><div class="placeholder">Loading…</div></div>
+  </section>
+  <section>
+    <div class="sec-title">Funnel</div>
+    <div class="chart-card"><div class="fn-steps" id="fn-steps"></div></div>
+  </section>
+  <section>
+    <div class="chart-card">
+      <div class="chart-title">Per Day</div>
+      <div class="chart-wrap-lg"><canvas id="c-funnel-daily"></canvas></div>
+    </div>
+  </section>
+  <section>
+    <div class="sec-title">By source</div>
+    <div class="chart-card" id="fn-by-channel"></div>
+  </section>
+  <section>
+    <div class="sec-title">By country</div>
+    <div class="chart-card" id="fn-by-country"></div>
+  </section>
+  <div class="wl-note">
+    Bots, link previews and automated browsers aren't counted, and a visit counts only once the page was looked at (~2 s visible, or a scroll or tap).
+    A visitor is one browser: the same person on a phone and a Mac counts twice, and clearing site data makes them new again, so unique counts are an upper bound.
+    Source: the link's <code>utm_source</code> (short links like <code>/ig</code> set it), else the in-app browser (Instagram, TikTok…), else the referring site, else direct.
+    Installs before funnel tracking, or by a Mac that skipped the waitlist, show as unknown.
+    Country data: <a href="https://db-ip.com" style="color:var(--blue)">IP Geolocation by DB-IP</a>.
+  </div>
 </div>
 
 <!-- Waitlist view -->
@@ -890,7 +943,10 @@ loadStats();
 (() => {
   const m = location.hash.match(/^#feedback\/([0-9a-f-]{36})$/);
   if (m) { switchTab('feedback'); openFeedback(m[1]); }
-  else fetch('/admin/feedback?limit=1').then(r => r.ok ? r.json() : null).then(d => d && setUnread(d.unread));
+  else {
+    if (location.hash === '#funnel') switchTab('funnel');
+    fetch('/admin/feedback?limit=1').then(r => r.ok ? r.json() : null).then(d => d && setUnread(d.unread));
+  }
 })();
 
 // ── Tab switching ────────────────────────────────────────────
@@ -900,9 +956,11 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.tab === tab));
   document.getElementById('view-dashboard').style.display = tab === 'dashboard' ? 'block' : 'none';
+  document.getElementById('view-funnel').style.display    = tab === 'funnel'    ? 'block' : 'none';
   document.getElementById('view-events').style.display    = tab === 'events'    ? 'block' : 'none';
   document.getElementById('view-feedback').style.display  = tab === 'feedback'  ? 'block' : 'none';
   document.getElementById('view-waitlist').style.display  = tab === 'waitlist'  ? 'block' : 'none';
+  if (tab === 'funnel') loadFunnel(_fnDays ?? 30);  // undefined when the hash handler opens it
   if (tab === 'events' && !_evLoaded) loadEvents(1);
   if (tab === 'feedback') loadFeedback(1);
   if (tab === 'waitlist') loadWaitlist(_wlStatus);
@@ -1228,6 +1286,93 @@ async function wlAct(action) {
   st.textContent = r.emailing ? `Sending ${r.emailing} email${r.emailing > 1 ? 's' : ''}, one at a time. The Emailed column fills in as they go.` : `Done (${r.changed} changed).`;
   loadWaitlist(_wlStatus);
   if (r.emailing) setTimeout(() => loadWaitlist(_wlStatus), Math.min(60000, 1500 + r.emailing * 800));
+}
+
+// ── Funnel ─────────────────────────────────────────────────
+var _fnDays = 30;  // var: the hash handler above runs before this line
+
+async function loadFunnel(days) {
+  _fnDays = days;
+  document.querySelectorAll('.fn-seg').forEach(b => b.classList.toggle('active', +b.dataset.days === days));
+  try {
+    const res = await fetch('/admin/funnel?days=' + days);
+    if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+    renderFunnel(await res.json());
+  } catch (e) {
+    document.getElementById('fn-kpis').innerHTML = `<div class="placeholder">Load failed — ${escHtml(e.message)}</div>`;
+  }
+}
+
+const pctOf = (n, d) => (d ? Math.round(100 * n / d) + '%' : '—');
+
+function renderFunnel(d) {
+  const t = d.totals;
+  document.getElementById('fn-kpis').innerHTML = [
+    kpi('Visits',          fmt.n(t.visits),        `${fmt.n(t.page_views)} page views`,          'hi-blue'),
+    kpi('Unique Visitors', fmt.n(t.visitors),      'different browsers in the period',           'hi-green'),
+    kpi('New Visitors',    fmt.n(t.new_visitors),  'first visit ever in the period',             'hi-purple'),
+    kpi('Unique Ever',     fmt.n(t.visitors_ever), 'all browsers since tracking began',          'hi-amber'),
+  ].join('');
+
+  const steps = [
+    ['Unique visitors',       t.visitors,          'browsers that looked at the site'],
+    ['Joined the waitlist',   t.signups,           'signups'],
+    ['Invited',               t.invited,           'invite email sent'],
+    ['Opened the download page', t.download_visitors, 'unique browsers on /download'],
+    ['Installed',             t.installs,          'new Macs registered'],
+    ['Sent a message',        t.activated,         'of those installs'],
+    ['Came back',             t.returned,          'messages on 2+ different days'],
+  ];
+  const top = Math.max(1, ...steps.map(s => s[1]));
+  document.getElementById('fn-steps').innerHTML = steps.map(([label, n, desc], i) => `
+    <div class="fn-step">
+      <div>${label}<div class="fn-desc">${desc}</div></div>
+      <div class="n">${fmt.n(n)}</div>
+      <div class="fn-bar"><div style="width:${(100 * n / top).toFixed(1)}%"></div></div>
+      <div class="pct">${i ? pctOf(n, steps[i - 1][1]) + ' of previous' : ''}</div>
+    </div>`).join('');
+
+  const rows = d.daily;
+  mkChart('c-funnel-daily', {
+    type: 'bar',
+    data: {
+      labels: rows.map(r => r.day),
+      datasets: [
+        { type: 'line', label: 'Visits', data: rows.map(r => r.visits), borderColor: '#3b82f6', tension: 0.3, yAxisID: 'y' },
+        { type: 'line', label: 'Unique visitors', data: rows.map(r => r.visitors), borderColor: '#22c55e', tension: 0.3, yAxisID: 'y' },
+        { type: 'line', label: 'New visitors', data: rows.map(r => r.new_visitors), borderColor: '#a855f7', borderDash: [4, 3], tension: 0.3, yAxisID: 'y' },
+        { label: 'Signups', data: rows.map(r => r.signups), backgroundColor: 'rgba(245,158,11,0.7)', yAxisID: 'y2' },
+        { label: 'Installs', data: rows.map(r => r.installs), backgroundColor: 'rgba(236,72,153,0.7)', yAxisID: 'y2' },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: baseScales.x,
+        y:  { beginAtZero: true, grid: { color: GRID_COLOR }, title: { display: true, text: 'visits' } },
+        y2: { beginAtZero: true, position: 'right', grid: { display: false }, title: { display: true, text: 'signups / installs' } },
+      },
+    },
+  });
+
+  document.getElementById('fn-by-channel').innerHTML = funnelTable(d.by_channel, 'Source');
+  document.getElementById('fn-by-country').innerHTML = funnelTable(d.by_country, 'Country');
+}
+
+function funnelTable(rows, head) {
+  if (!rows.length) return '<div class="placeholder">Nothing in this period.</div>';
+  const n = v => fmt.n(v || 0);
+  const body = rows.map(r => `<tr>
+      <td>${escHtml(r.label)}</td>
+      <td class="num">${n(r.visits)}</td><td class="num">${n(r.new_visitors)}</td>
+      <td class="num">${n(r.signups)}</td><td class="num">${pctOf(r.signups || 0, r.new_visitors)}</td>
+      <td class="num">${n(r.installs)}</td><td class="num">${n(r.activated)}</td><td class="num">${n(r.returned)}</td>
+    </tr>`).join('');
+  return `<div class="ev-table-wrap"><table class="ev-table">
+      <thead><tr><th>${head}</th><th class="num">Visits</th><th class="num">New visitors</th>
+        <th class="num">Signups</th><th class="num">Signup rate</th>
+        <th class="num">Installs</th><th class="num">Sent a message</th><th class="num">Came back</th></tr></thead>
+      <tbody>${body}</tbody></table></div>`;
 }
 
 function escHtml(s) {

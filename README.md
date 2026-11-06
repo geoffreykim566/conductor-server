@@ -34,10 +34,10 @@ docker compose exec app python -m evals.battery.runner > test_runs/$(date +%F)/r
 
 - **`app/` is baked into the image.** After editing anything under `app/` or `seed/`, run `docker compose up -d --build` or the container keeps running the old code. `tests/`, `evals/` and `test_runs/` are bind-mounted and live.
 - **Migrations only run on a fresh volume** (they're mounted as `docker-entrypoint-initdb.d`). For an existing DB, apply the new file by hand: `docker compose exec -T db psql -U conductor -d conductor < migrations/00N_x.sql`. Prod gets the same by hand.
-- **Second stack for a branch or worktree:** `docker compose -p <name> -f docker-compose.yml -f docker-compose.standalone.yml up -d --build`. It has no ports, bind-mounts the whole checkout with `PYTHONPATH=/srv` (so `app/` edits are live), and uses its own DB volume (seed it once). Drive it with `docker compose -p <name> -f docker-compose.yml -f docker-compose.standalone.yml exec -T app ...`.
+- **Second stack for a branch or worktree:** `docker compose -p <name> -f docker-compose.yml -f docker-compose.standalone.yml up -d --build`. It has no ports, bind-mounts the whole checkout with `PYTHONPATH=/srv` (so `app/` edits need only `restart app`, not a rebuild: uvicorn doesn't reload), and uses its own DB volume (seed it once). Drive it with `docker compose -p <name> -f docker-compose.yml -f docker-compose.standalone.yml exec -T app ...`.
 - **Stale code before new theories.** If behaviour doesn't match the code, first check the image was rebuilt (routes are read from `seed/` at import).
 - **Log with `log.warning("[marker] ...")`, never `log.info`.** The root logger isn't configured, so info lines never reach `docker compose logs`; grep-able `[markers]` are the convention.
-- **Stateless.** Nothing is stored between requests except users, events, feedback and the waitlist. The client round-trips the full history (`app/api/README.md`).
+- **Stateless.** Nothing is stored between requests except users, events, feedback, the waitlist and site visits. The client round-trips the full history (`app/api/README.md`).
 
 ## Deploying
 

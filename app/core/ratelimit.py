@@ -22,15 +22,19 @@ def _bucket(ip: str) -> str:
     return ip
 
 
-def get_client_ip(request: Request) -> str:
-    """Real client IP, spoof-resistant, bucketed for rate limiting.
+def client_ip(request: Request) -> str:
+    """Real client IP, spoof-resistant.
 
     The rightmost X-Forwarded-For entry is the one appended by our own reverse
     proxy; anything left of it arrived from the client and can be forged.
     """
     forwarded = request.headers.get("X-Forwarded-For")
-    raw = forwarded.split(",")[-1].strip() if forwarded else request.client.host
-    return _bucket(raw)
+    return forwarded.split(",")[-1].strip() if forwarded else request.client.host
+
+
+def get_client_ip(request: Request) -> str:
+    """The client IP bucketed for rate limiting."""
+    return _bucket(client_ip(request))
 
 
 limiter = Limiter(key_func=get_client_ip)

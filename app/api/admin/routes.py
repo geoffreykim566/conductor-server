@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
-from app.api.admin import feedback_queries, queries, waitlist_queries
+from app.api.admin import feedback_queries, funnel_queries, queries, waitlist_queries
 from app.core import invite_mail
 from app.core.config import ADMIN_PASSWORD, ADMIN_USER
 
@@ -40,6 +40,13 @@ async def dashboard(_: None = Depends(_require_admin)):
 @router.get("/admin/stats", include_in_schema=False)
 async def stats(_: None = Depends(_require_admin)):
     return await queries.stats()
+
+
+@router.get("/admin/funnel", include_in_schema=False)
+async def funnel(_: None = Depends(_require_admin), days: int = 30):
+    if days not in (7, 30, 90, 0):  # 0 = all time
+        raise HTTPException(status_code=422, detail="days must be 7, 30, 90 or 0")
+    return await funnel_queries.funnel(days or None)
 
 
 @router.get("/admin/events", include_in_schema=False)

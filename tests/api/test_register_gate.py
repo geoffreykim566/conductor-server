@@ -26,6 +26,7 @@ def gate():
             patch.object(register.db, "known_device", new=AsyncMock(return_value=False)) as known, \
             patch.object(register.waitlist, "claim_install", new=AsyncMock(return_value="ok")) as claim, \
             patch.object(register.waitlist, "release_install", new=AsyncMock()) as release, \
+            patch.object(register.db, "set_user_origin", new=AsyncMock()), \
             patch.object(register.db, "register_user",
                          new=AsyncMock(side_effect=lambda new_id, dev: new_id)) as reg:
         yield TestClient(app), known, claim, release, reg
@@ -97,3 +98,24 @@ def test_gate_off_registers_without_an_email(gate) -> None:
     with patch.object(register.config, "WAITLIST_REQUIRED", False):
         assert c.post("/v3/register", headers=DEV).status_code == 200
     claim.assert_not_awaited()
+
+
+def test_new_mac_records_its_origin(gate) -> None:
+    c, *_ = gate
+    with patch.object(register.db, "set_user_origin", new=AsyncMock()) as origin, \
+            patch.object(register.geo, "country", return_value="DE"):
+        r = c.post("/v3/register", json={"email": "Sam@Example.com"}, headers=DEV)
+    assert r.status_code == 200, r.text
+    uid, email, country = origin.await_args.args
+    assert (email, country) == ("sam@example.com", "DE"), origin.await_args
+    assert signing.verify(r.json()["conductor_id"]) == uid
+
+
+def test_known_mac_keeps_its_origin(gate) -> None:
+    c, known, _, _, reg = gate
+    known.return_value = True
+    reg.side_effect = None
+    reg.return_value = uuid.uuid4()
+    with patch.object(register.db, "set_user_origin", new=AsyncMock()) as origin:
+        assert c.post("/v3/register", headers=DEV).status_code == 200
+    origin.assert_not_awaited()

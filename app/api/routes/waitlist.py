@@ -2,9 +2,9 @@
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.core import waitlist
+from app.core import channel, geo, waitlist
 from app.core.config import WAITLIST_RATE_LIMIT
-from app.core.ratelimit import limiter
+from app.core.ratelimit import client_ip, limiter
 
 router = APIRouter()
 
@@ -24,6 +24,8 @@ async def join_waitlist(request: Request, body: JoinIn):
         raise HTTPException(status_code=422, detail="invalid_email")
     if not body.company:
         source = (body.source or "").strip().lower() or None
-        await waitlist.join(email, source)
+        await waitlist.join(email, source,
+                            channel.channel(source, request.headers.get("user-agent")),
+                            geo.country(client_ip(request)))
     # Same answer for a new, repeat or bot signup: the page never shows who's on the list.
     return {"ok": True}

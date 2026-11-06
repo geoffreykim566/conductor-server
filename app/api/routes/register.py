@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.api.deps import device_hash
-from app.core import config, db, signing, waitlist
+from app.core import config, db, geo, signing, waitlist
 from app.core.config import REGISTER_RATE_LIMIT
-from app.core.ratelimit import limiter
+from app.core.ratelimit import client_ip, limiter
 
 router = APIRouter()
 
@@ -38,6 +38,8 @@ async def register(request: Request, body: RegisterIn | None = None,
             raise HTTPException(status_code=403, detail=status)
 
     cid = await db.register_user(new_id, device)
-    if email and cid != new_id:
+    if cid == new_id:
+        await db.set_user_origin(cid, email, geo.country(client_ip(request)))
+    elif email:
         await waitlist.release_install(email)  # another register for this Mac won the race
     return {"conductor_id": token if cid == new_id else signing.sign(cid)}

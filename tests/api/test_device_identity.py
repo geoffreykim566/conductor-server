@@ -28,7 +28,8 @@ def client():
 def secret():
     # The waitlist gate has its own tests (test_register_gate.py).
     with patch.object(signing, "CONDUCTOR_ID_SECRET", "test-secret"), \
-            patch.object(register.config, "WAITLIST_REQUIRED", False):
+            patch.object(register.config, "WAITLIST_REQUIRED", False), \
+            patch.object(register.db, "set_user_origin", new=AsyncMock()):
         yield
 
 
