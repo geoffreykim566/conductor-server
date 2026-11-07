@@ -8,6 +8,8 @@ RATE_LIMIT = os.environ.get("RATE_LIMIT", "10/minute")
 REGISTER_RATE_LIMIT = os.environ.get("REGISTER_RATE_LIMIT", "20/day")
 FEEDBACK_RATE_LIMIT = os.environ.get("FEEDBACK_RATE_LIMIT", "10/hour")
 WAITLIST_RATE_LIMIT = os.environ.get("WAITLIST_RATE_LIMIT", "10/hour")
+# A page load sends one beacon; this caps a script replaying it from one address.
+VISIT_RATE_LIMIT = os.environ.get("VISIT_RATE_LIMIT", "120/hour")
 
 # Trailing-24h spend (event_costs) above this makes /v3/chat return 503.
 DAILY_BUDGET_USD = float(os.environ.get("DAILY_BUDGET_USD", "10"))
@@ -54,3 +56,7 @@ RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 INVITE_FROM = os.environ.get("INVITE_FROM", "Conductor <hello@askconductor.ai>")
 INVITE_REPLY_TO = os.environ.get("INVITE_REPLY_TO", "hello@askconductor.ai")
 DOWNLOAD_URL = os.environ.get("DOWNLOAD_URL", "https://askconductor.ai/download")
+
+# DB-IP Lite country database, downloaded at image build (Dockerfile). Outside /srv so the
+# standalone stack's bind mount doesn't hide it.
+GEO_DB_PATH = os.environ.get("GEO_DB_PATH", "/opt/geo/dbip-country-lite.mmdb")

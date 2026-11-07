@@ -23,13 +23,20 @@ def test_signup_is_stored_normalized(wl) -> None:
     c, join = wl
     r = c.post("/v3/waitlist", json={"email": " Sam@Example.com ", "source": " Instagram "})
     assert r.status_code == 200 and r.json() == {"ok": True}, r.text
-    join.assert_awaited_once_with("sam@example.com", "instagram")
+    join.assert_awaited_once_with("sam@example.com", "instagram", "instagram", None)
 
 
 def test_signup_without_source(wl) -> None:
     c, join = wl
     assert c.post("/v3/waitlist", json={"email": "a@b.co", "source": ""}).status_code == 200
-    join.assert_awaited_once_with("a@b.co", None)
+    join.assert_awaited_once_with("a@b.co", None, "direct", None)
+
+
+def test_signup_from_an_in_app_browser_gets_its_channel(wl) -> None:
+    c, join = wl
+    ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile/15E148 Instagram 350.0"
+    assert c.post("/v3/waitlist", json={"email": "a@b.co"}, headers={"User-Agent": ua}).status_code == 200
+    assert join.await_args.args[2] == "instagram", join.await_args
 
 
 def test_honeypot_answers_ok_but_stores_nothing(wl) -> None:

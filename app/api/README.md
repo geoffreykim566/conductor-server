@@ -13,12 +13,13 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 | `routes/ratings.py` | `POST /v3/ratings`: thumbs on a reply's event |
 | `routes/feedback.py` | `POST /v3/feedback`: a bug report or feedback from the client's Report Bug form |
 | `routes/waitlist.py` | `POST /v3/waitlist`: the landing page's signup form (no auth, CORS for the site) |
+| `routes/visit.py` | `POST /v3/visit`: the site's visit beacon (no auth, CORS for the site); bots dropped |
 | `schemas.py` | `ChatRequest` and its limits; the history shape whitelist |
 | `history.py` | Trimming round-tripped history; spotting a parked research or plug-in-read turn |
 | `middleware.py` | Body-size cap (before validation); 422 logging |
 | `sse.py` | SSE framing |
 | `deps.py` | `current_user`: verifies the `X-Conductor-Id` header (the only auth); `device_hash` reads `X-Conductor-Device` |
-| `admin/` | `/admin` KPI dashboard (basic auth): page, `/admin/stats`, `/admin/events`, `/admin/feedback` (+ `/{id}`, which marks it read), `/admin/waitlist` (+ `/action`, `.csv`). SQL in `queries.py`, `feedback_queries.py`, `waitlist_queries.py` |
+| `admin/` | `/admin` KPI dashboard (basic auth): page, `/admin/stats`, `/admin/events`, `/admin/feedback` (+ `/{id}`, which marks it read), `/admin/waitlist` (+ `/action`, `.csv`), `/admin/funnel?days=7\|30\|90\|0`. SQL in `queries.py`, `feedback_queries.py`, `waitlist_queries.py`, `funnel_queries.py` |
 
 ## /v3/chat
 
@@ -80,6 +81,18 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
   - **Invites go one recipient per email** through Resend (`app/core/invite_mail.py`), sent in a background task ~0.6 s apart, so no address can be exposed to another. `emailed_at` is set only on success; a failure is logged `[invite_mail]` and the row shows "Not yet". Without `RESEND_API_KEY` the email actions return 409 and change nothing.
   - **CORS** is on for `CORS_ORIGINS` (the site, plus `:8765` for local previews), POST only. Every other route needs a signed id anyway.
   - `WAITLIST_REQUIRED=0` turns the gate off (old behaviour).
+
+## Funnel
+
+Visits → signups → invites → installs → use, in the admin Website tab (migration 015, user calls 11-06). The site's beacon is in `website/visit.js` (`website/README.md`, Visit counting).
+
+- **Our own counter, not Cloudflare Web Analytics** (user call): Cloudflare loses the referrer from Instagram and TikTok's in-app browsers, drops `utm_source`, and can't line visits up with signups and installs.
+- **What counts as a visit:** the page was looked at (~2 s visible, or a scroll, tap or key), and the user agent isn't a bot, link previewer or headless browser, and `navigator.webdriver` is false (`app/core/channel.py`). Dropped views answer 204 like the rest and store nothing. A full headless Chrome with a faked agent and no automation flag still gets through; accepted.
+- **Three counts:** visits (distinct per-tab session ids), unique visitors in the period, and unique ever (distinct visitor ids, a random id in local storage: one per browser, so an upper bound). New visitors = first visit ever in the period.
+- **Channel:** `utm_source` (the short links set it), else the in-app browser named in the user agent, else the referrer host mapped to a platform, else direct. Signups get the same channel from the page's `source` plus their own user agent. Pre-015 signups have only `source`; admin runs it through the same mapping.
+- **Usage by channel without linking** (user call): at register, a new Mac's `users` row copies only its waitlist row's channel label, never the email. Users with no waitlist email (registered before the gate, or `WAITLIST_REQUIRED=0`) show as unknown.
+- **Country:** looked up from the IP at visit, signup and register (`app/core/geo.py`, DB-IP Lite), then the IP is dropped. Railway's proxy gives the client IP; `api.askconductor.ai` isn't proxied by Cloudflare, so there's no `CF-IPCountry`.
+- **Each funnel step counts what happened in the period**, not one cohort followed through, so a step can exceed the one before it (installs from invites sent last month).
 
 ## Adding a route
 

@@ -12,11 +12,14 @@ def normalize_email(raw: str | None) -> str | None:
     return e if len(e) <= 254 and _EMAIL.fullmatch(e) else None
 
 
-async def join(email: str, source: str | None) -> None:
+async def join(email: str, source: str | None, channel: str, country: str | None) -> None:
     """Add a signup; signing up again changes nothing."""
     await db.pool().execute(
-        "insert into waitlist (email, source) values ($1, $2) on conflict (email) do nothing",
-        email, source,
+        """
+        insert into waitlist (email, source, channel, country) values ($1, $2, $3, $4)
+        on conflict (email) do nothing
+        """,
+        email, source, channel, country,
     )
 
 

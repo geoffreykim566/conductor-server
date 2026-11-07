@@ -85,6 +85,20 @@ async def register_user(new_id: uuid.UUID, device_hash: str | None) -> uuid.UUID
     )
 
 
+async def set_user_origin(user_id: uuid.UUID, email: str | None, country: str | None) -> None:
+    """A new user's country, and the channel of the waitlist row it registered with (the label
+    only: no email is stored on users)."""
+    await pool().execute(
+        """
+        update users set
+            country = $3,
+            channel = (select coalesce(channel, source) from waitlist where email = $2)
+        where id = $1
+        """,
+        user_id, email, country,
+    )
+
+
 async def known_device(device_hash: str) -> bool:
     return bool(await pool().fetchval("select 1 from users where device_hash = $1", device_hash))
 

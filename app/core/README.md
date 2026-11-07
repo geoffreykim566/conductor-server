@@ -13,6 +13,9 @@ Shared infrastructure that every other package imports. Nothing in here imports 
 | `budget.py` | Daily-spend circuit breaker |
 | `feedback_ping.py` | Optional webhook ping per bug report / feedback (`FEEDBACK_WEBHOOK_URL`) |
 | `waitlist.py` | Waitlist queries outside admin: email normalizing, signup, claiming an install slot at register |
+| `channel.py` | A visit's or signup's channel (utm tag, in-app user agent, referrer host) and bot detection |
+| `geo.py` | Country of an IP from the local DB-IP Lite file; the IP is never stored |
+| `visits.py` | Storing one counted page view from the site's beacon |
 | `invite_mail.py` | The invite email, one recipient per send through Resend (`RESEND_API_KEY`) |
 
 ## Quirks & why
@@ -27,3 +30,4 @@ Shared infrastructure that every other package imports. Nothing in here imports 
 - **Budget:** the console spend cap on the central key is the hard backstop, but tripping it takes the whole beta down until it resets. This breaker trips first, on trailing-24h `event_costs` > `DAILY_BUDGET_USD`, and recovers on its own. `event_costs` (migration 009) prices Sol events at $2 in / $0.10 cached / $10 out per M (OpenAI standard tier, 10-19) and older `claude-*` rows at 004's $3/$15. `tokens_in` is uncached input only; cached input is `tokens_cached`. Web-search fees aren't counted, so research turns run slightly under. It's cached for 60s, so one aggregate query per minute.
 - **Rate limit:** IPv6 is keyed per /64, because privacy extensions mint a fresh address per connection. A malformed IP is used as-is rather than raising.
 - **`FREE_LIMIT`** (100 since 10-30) is the default for new users. It's copied into each `users` row at register, so changing it for existing users takes a migration (013). Raising one local user's count in dev: the `grant-free-messages` skill.
+- **Country database:** DB-IP Lite country (CC BY 4.0: the admin Website tab and the privacy page credit it), fetched at image build by `docker/fetch_geo.py` into `/opt/geo` (outside `/srv`, so the standalone stack's bind mount doesn't hide it). Their CDN 403s Python's default user agent, so the script sends its own. A failed download doesn't fail the build: countries are just unknown, logged once as `[geo]`. It's only as fresh as that build layer: a cached layer keeps the old month's file (countries barely move, so fine).
