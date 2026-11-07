@@ -72,6 +72,7 @@ async def chat(request: Request, req: ChatRequest, user: asyncpg.Record = Depend
 
         async def run() -> None:
             try:
+                log.warning("[turn] explain=%s resume=%s", "on" if req.explain else "off", req.resume)
                 history = trim_history(req.history or [])
                 # A resume's history already ends with this turn's parked
                 # tool call; the user message is further back inside it.
@@ -81,6 +82,7 @@ async def chat(request: Request, req: ChatRequest, user: asyncpg.Record = Depend
                     on_chunk=on_chunk, on_status=on_status,
                     research_confirm=req.research_confirm, resume=req.resume,
                     plugin_reads=req.plugin_reads, plugin_values=req.plugin_values,
+                    explain=req.explain,
                 )
                 await queue.put(("result", result))
             except SolError as e:
@@ -145,6 +147,8 @@ async def chat(request: Request, req: ChatRequest, user: asyncpg.Record = Depend
                         "walkthrough_steps": result.walkthrough_steps or [],
                         # Older clients ignore it.
                         "auto_run": result.auto_run,
+                        # v0.4.5+ underlines these; older clients ignore it.
+                        "terms": result.terms,
                         "history": result.messages,
                     })
                     return

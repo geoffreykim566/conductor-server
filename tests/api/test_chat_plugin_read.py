@@ -16,7 +16,7 @@ PARKED = [{"role": "user", "content": "what are my settings"},
 def _result(**kw) -> SimpleNamespace:
     base = dict(usage=[{"input_tokens": 1, "output_tokens": 1}], confidence_tier="generic", text="",
                 pending_research_query=None, pending_plugin_read=None, sources=[], walkthrough_steps=[],
-                auto_run=False, messages=PARKED)
+                auto_run=False, terms=[], messages=PARKED)
     return SimpleNamespace(**{**base, **kw})
 
 

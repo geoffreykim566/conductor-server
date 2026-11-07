@@ -37,7 +37,7 @@ def test_finished_turn_is_not_refunded(client) -> None:
     c, refund = client
     result = SimpleNamespace(usage=[{"input_tokens": 1, "output_tokens": 1}], confidence_tier="generic",
                              text="Done.", pending_research_query=None, pending_plugin_read=None, sources=[], walkthrough_steps=[],
-                             auto_run=False, messages=[])
+                             auto_run=False, terms=[], messages=[])
     with patch.object(chat, "respond", new=AsyncMock(return_value=result)):
         evs = events(c.post("/v3/chat", json={"message": "hi"}))
     assert evs[-1]["type"] == "done", evs

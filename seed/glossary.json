@@ -1,0 +1,35 @@
+{
+  "_note": "PLACEHOLDERS ONLY. The wording of real definitions is still open (explain-mode-log.md); these exist to show the highlight and popup working. Schema: app/pipeline/README.md (Glossary).",
+  "terms": [
+    {
+      "term": "Compressor",
+      "match": ["compressor", "compressors", "compression"],
+      "definition": "Placeholder definition: wording to come.",
+      "url": "https://en.wikipedia.org/wiki/Dynamic_range_compression",
+      "source": "Wikipedia",
+      "placeholder": true
+    },
+    {
+      "term": "Buffer size",
+      "match": ["i/o buffer size", "buffer size"],
+      "definition": "Placeholder definition: wording to come.",
+      "placeholder": true
+    },
+    {
+      "term": "Latency",
+      "match": ["monitoring latency", "latency"],
+      "definition": "Placeholder definition: wording to come.",
+      "url": "https://en.wikipedia.org/wiki/Latency_(audio)",
+      "source": "Wikipedia",
+      "placeholder": true
+    },
+    {
+      "term": "Sample rate",
+      "match": ["sample rate", "sample rates", "sample-rate"],
+      "definition": "Placeholder definition: wording to come.",
+      "url": "https://en.wikipedia.org/wiki/Sampling_(signal_processing)",
+      "source": "Wikipedia",
+      "placeholder": true
+    }
+  ]
+}

@@ -34,13 +34,13 @@ def _client_read(reads: dict, pending: dict) -> dict:
 async def respond_as_client(messages: list[dict], turn: dict, **kwargs):
     """respond() the way the client drives it: a turn parked at read_plugin_values is resumed
     with the turn's `plugin_reads`, through the real park/resume path. Usage is summed."""
-    result = await respond(messages, plugin_reads=True, **kwargs)
+    result = await respond(messages, plugin_reads=True, explain=EXPLAIN, **kwargs)
     usage = list(result.usage)
     for _ in range(MAX_PLUGIN_READS_PER_TURN):
         if result.pending_plugin_read is None:
             break
         print(f"  [plugin read parked: {result.pending_plugin_read}]")
-        result = await respond(result.messages, plugin_reads=True, resume="allow_plugin_read",
+        result = await respond(result.messages, plugin_reads=True, resume="allow_plugin_read", explain=EXPLAIN,
                                plugin_values=_client_read(turn.get("plugin_reads") or {}, result.pending_plugin_read),
                                **kwargs)
         usage.extend(result.usage)
@@ -55,6 +55,8 @@ def load_scenarios(set_name: str = "all") -> list[dict]:
     return [s for f in SETS[set_name] for s in json.loads((SCENARIOS_DIR / f).read_text())]
 # BATTERY_DELAY_S overrides per run.
 BETWEEN_SCENARIOS_DELAY_S = float(os.environ.get("BATTERY_DELAY_S", 2))
+# The Explain toggle: BATTERY_EXPLAIN=1 adds the Explain block, as the client does with it on.
+EXPLAIN = os.environ.get("BATTERY_EXPLAIN", "0") == "1"
 
 
 async def run_scenario(scenario: dict) -> dict:
@@ -132,7 +134,7 @@ async def run_battery_once(scenarios: list[dict], run_label: str = "") -> dict:
     per-scenario signature of every assertion's (turn, field, pass), not just counts,
     so --runs can show WHICH assertion flipped between runs."""
     label = f" ({run_label})" if run_label else ""
-    print(f"DECIDER: {config.SOL_MODEL}")
+    print(f"DECIDER: {config.SOL_MODEL}  EXPLAIN: {'on' if EXPLAIN else 'off'}")
     results = []
     wall_start = time.monotonic()
     await db.connect()

@@ -10,6 +10,7 @@ Model-in-the-loop evaluation. These hit the real APIs, unlike `tests/`, which ar
 | `battery/grader.py` | Turns a trace into an outcome and grades it against the scenario's `expect` block |
 | `scenarios/core.json` | **The core battery** (39 scenarios, 48 turns): one or two per distinct behaviour. The regression and quality check |
 | `scenarios/extended.json` | Everything else (83). Variations on core behaviours, kept for targeted runs, not run by default |
+| `term_finder.py` | Glossary candidates: Sol's phrases from battery logs, ranked by use and rarity in everyday English (host only, needs `wordfreq`) |
 | `battery/paths.py` | `ungrounded_paths`: menu paths stated with no route or cited source behind them |
 | `drive_turn.py` | One turn at a time, with state kept in a file between calls: for reactive multi-turn probing |
 
@@ -23,6 +24,7 @@ docker compose exec -T app python -m evals.battery.runner > test_runs/$(date +%F
 docker compose exec -T app python -m evals.battery.runner --set extended                         # or: all
 docker compose exec -T app python -m evals.battery.runner name1 name2                            # by name, from any set
 docker compose exec -T app python -m evals.battery.runner --runs 3 name1                         # flakiness check
+docker compose exec -T -e BATTERY_EXPLAIN=1 app python -m evals.battery.runner                     # with the Explain block (default: off)
 ```
 
 **Shard it 3-way in parallel** (~5 min for core). Rate limits are not a constraint:

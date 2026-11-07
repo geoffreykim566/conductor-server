@@ -22,6 +22,7 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
 | `settings.py` | Tunables (`MAX_ITERATIONS`, decider effort, early exit, ...) |
 | `notes.py` | Fixed text: refusals and the answer-now nudge for the decider, the undo decline for the user |
 | `result.py` | `Result` dataclass |
+| `glossary.py` | Glossary terms in the reply (`seed/glossary.json`) for the client to underline |
 
 ## How a turn flows
 
@@ -49,7 +50,7 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
 - **What grounds it:** the approved routes (`open_setting`; every card's path comes from `seed/routes.json`), a short "Logic facts" list in its prompt for things it got wrong unaided, and `web_research` only when it has no answer of its own. Add a fact when a miss repeats; keep each one worded as a plain fact, not a symptom match.
 - **The prompt and tools are the exact tested text.** Edit them directly and re-run the battery. The prompt still lists "cite_kb", "KB" among words never to say: harmless, left so the tested text stays byte-identical.
 - **Responses API, not Chat Completions:** OpenAI doesn't support function calling with Sol on Chat Completions. `store` is off; Sol's encrypted reasoning items are replayed within a turn (OpenAI recommends it) but never enter history.
-- **`answer` arg on the action tools:** Sol never writes text beside a tool call, so a card turn ended with no explanation, and asking for it took a second call (~5 s). The reply now rides on the first action call and the adapter turns it into the text block. Written text wins if Sol writes both (logged as `[sol_answer_dropped]`; an unconfirmed cause of a 10-15 reply that lost its steps).
+- **`answer` arg on the action tools:** Sol never writes text beside a tool call, so a card turn ended with no explanation, and asking for it took a second call (~5 s). The reply now rides on the first action call and the adapter turns it into the text block. Written text wins if Sol writes both (logged as `[sol_answer_dropped]`; an unconfirmed cause of a 10-15 reply that lost its steps). Its description says it's the whole reply: with Explain on, Sol put only an intro there ("follow the steps below") and early exit ended the turn before any steps (3/3, 11-06); 6/6 after.
 - **`remaining_actions` arg:** Sol queues one action per response even when a request needs several (an explicit `parallel_tool_calls` didn't change that), and early exit then dropped the rest ("add a compressor at -18" lost the threshold). A yes/no "more coming" flag still lost the last of three live ("compressor and eq with low cut" lost the low cut 2/3); listing what's left makes Sol plan, and the turn continues while the list is non-empty (`more_actions` on the response, `TurnState.more_actions`). 10/10 after.
 - **Sol sees its own calls as it made them.** The adapter strips `answer` / `remaining_actions` before anything runs, but replays them (and the response's reasoning) into the turn's later calls from a per-turn stash, so Sol still sees its plan. Text synthesized from `answer` is replayed as Sol's own message, with `answer` left out of the call: seeing its reply only inside the call, Sol wrote the whole reply again on a follow-up call (the `ask_options` one), and both copies were kept (9/96 core turns, 10-16). A note telling it the reply was already shown changed nothing.
 - **Empty args are dropped** (Sol sends `value: ""` for an omitted optional one, which the dropdown routes refused), and **malformed tool JSON is retried** like a 429 (Sol once sent truncated arguments). `[sol_text]` logs Sol's text per call.
@@ -57,6 +58,7 @@ One turn of conversation. `respond(messages, ...)` takes the full history ending
 ### Reply (`reply.finalize_reply`)
 - **No writer model.** A Haiku writer used to reword the decider's text, because Sonnet leaked its own machinery into replies. Sol doesn't. In the 10-17 A/B on identical Sol text (118 turns), no writer dropped and invented nothing and saved ~1 s; Haiku 4.5 cut 9 replies well below Sol's text (steps, questions) and invented 2 picks; Haiku 5.5 with a keep-the-steps card block kept content but recited the card rule on ~25 turns. Run outputs: `test_runs/2026-10-17/wab_*`.
 - **What the writer did that code now does:** the undo decline (`notes.UNDO_DECLINE`, whatever Sol wrote; typed undo is denied for now, the card's Revert button does it), and a question asked only through `ask_clarifying_question` reaching the user (appended unless the text already holds it). It also used to hide Sol's duplicate and refused-call text (Turn text, below).
+- **Numbered steps get a blank line between them** (`reply.space_steps`, user call 11-06), in code so it holds every time; glossary offsets are taken after it.
 - The reply goes to the client as a single chunk event, since Sol's call doesn't stream (the writer used to stream token by token). Check it renders the same in the live pass.
 
 ### One card per turn
@@ -101,10 +103,16 @@ A card runs without Run only when all of these hold:
 
 The KB era also held back any card a citation led to (a "bypass control surfaces" card off a moderate match once auto-ran on a turn whose own reply said "I don't have a verified fix"). That guard went with the citations, so a symptom phrased as a command ("my vocal sounds muddy, fix it") auto-runs the fix Sol picks when the client's auto-run setting is on. That's on purpose (user call 10-19): "fix it" is a direct command and Revert undoes the card. A word-match hold was tried and dropped: it needed a hand-kept list of words too common to name a route ("sound", "time", "rate") and still misjudged cases ("mic" vs "microphone access").
 
-There's deliberately no user-facing explain/do mode toggle (user call): the decider picks per turn, and the Run press stays the floor for anything the rules above don't clear.
+There's deliberately no user-facing "just explain, don't act" toggle (user call): the decider picks per turn, and the Run press stays the floor for anything the rules above don't clear. (The Explain toggle is unrelated: it only adds explanation to replies, `prompts/README.md`.)
 
 ### Confidence tier
 Computed from the trace, deterministically: a clarifying question -> generic; a card -> strong; successful research -> research; otherwise generic. The moderate tier came from KB citations and went with them. The client badge is disabled (see `app/api/README.md`); the tier is still recorded in events and used by the battery.
+
+### Glossary (`glossary.find_terms`)
+- **Code finds the terms, not Sol.** A set definition shows on click, so the same word always gets the same reviewed wording, with no extra call or delay; a tool for it would fire when Sol chose to (prompt-only rules hold ~40–50%) and add a round trip.
+- First mention of each entry, longest spelling first ("I/O Buffer Size" over "buffer size"), whole words only. Offsets are str indices into `Result.text`.
+- **Terms the user's message names are skipped:** "what is a compressor" is answered by the reply itself.
+- The definitions in `seed/glossary.json` are placeholders until the wording is decided (`explain-mode-log.md`).
 
 ### Backfill
 If the user asks to see something again and the model answers from memory with no tool call, the earlier route is re-attached. It's gated on re-ask language in the *user's* message: matching the destination name in the reply misfired when a topic recurred for other reasons. Zero or several candidates are left alone. Hostile phrasings are covered in `tests/pipeline/test_backfill.py`.

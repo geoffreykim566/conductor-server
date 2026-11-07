@@ -17,3 +17,4 @@ class Result:
     pending_plugin_read: dict | None = None
     sources: list[dict] = field(default_factory=list)  # web_research citations
     auto_run: bool = False  # card may run without Run (client setting permitting)
+    terms: list[dict] = field(default_factory=list)  # glossary terms in `text` (glossary.find_terms)

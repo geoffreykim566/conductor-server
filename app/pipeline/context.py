@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from app import tools
 from app.pipeline.transcript import last_user_text_index
-from app.prompts import SYSTEM_PROMPT
+from app.prompts import EXPLAIN_BLOCK, SYSTEM_PROMPT
 
 _LIVE_STATE_HEADER = (
     "\n\n## Live state for this turn\n\n"
@@ -36,7 +36,8 @@ class TurnContext:
 
     @classmethod
     def build(cls, msgs: list[dict], screenshots_b64: list[str] | None,
-              ax_fixture: dict | None, ax_state: str | None, plugin_reads: bool = False) -> "TurnContext":
+              ax_fixture: dict | None, ax_state: str | None, plugin_reads: bool = False,
+              explain: bool = False) -> "TurnContext":
         # ax_fixture: the battery's hand-written state. ax_state: the client's live AX dump.
         state_blocks = []
         if ax_fixture:
@@ -46,7 +47,10 @@ class TurnContext:
         live_state = "\n\n".join(state_blocks) if state_blocks else None
 
         # Live state is its own block after the static prompt, so the prompt prefix still caches.
+        # The Explain block sits between them: fixed text, so each setting caches too.
         system = [{"type": "text", "text": SYSTEM_PROMPT}]
+        if explain:
+            system.append({"type": "text", "text": EXPLAIN_BLOCK})
         if state_blocks:
             system.append({
                 "type": "text",

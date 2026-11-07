@@ -5,8 +5,10 @@ from app.tools.routes import REFERENCES, ROUTES, route_line, route_path_text
 # Sol writes no text beside a tool call, so its reply rides on the action call (the
 # adapter moves it into a text block); without it each card turn cost a second call.
 ANSWER_PROP = {"type": "string", "description": (
-    "Your written reply to the user, shown beside this card: what's going on and the fix, as you'd "
-    "write it in your answer (for a plain command, one short line). Fill it on the first action call "
+    "Your written reply to the user, shown beside this card: what's going on and what the fix does "
+    "for them, as you'd write it in your answer (for a plain command, one line on what it does for "
+    "them, not the card's steps). It's the whole reply: put any numbered steps for what the card "
+    "doesn't do here too, since nothing is written after it. Fill it on the first action call "
     "of a response; leave it empty on the others.")}
 # Sol queues one action per response even when a request needs several. A yes/no "more
 # coming" flag still lost the last one (the low cut in "compressor and eq with low cut", 2/3);

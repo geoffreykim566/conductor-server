@@ -4,7 +4,7 @@ import json
 import logging
 
 from app import tools
-from app.pipeline import model_io, notes, settings
+from app.pipeline import glossary, model_io, notes, settings
 from app.pipeline.backfill import backfill_walkthrough
 from app.pipeline.confidence import collect_sources
 from app.pipeline.context import TurnContext
@@ -29,6 +29,7 @@ async def respond(messages: list[dict], **kwargs) -> Result:
     waits = any(c["tool"] == "open_setting" and tools.ROUTES.get((c.get("input") or {}).get("name"), {}).get("wait_for_run")
                 for c in result.trace)
     result.auto_run = not reshown and not waits and auto_run_ok(messages, result.walkthrough_steps)
+    result.terms = glossary.find_terms(result.text, last_user_text(messages))
     return result
 
 
@@ -104,6 +105,7 @@ async def run_turn(
     resume: str | None = None,
     plugin_reads: bool = False,
     plugin_values: dict | None = None,
+    explain: bool = False,
 ) -> Result:
     """research_confirm: park the turn (Result.pending_research_query) instead of
     running web_research, so the client can ask the user. plugin_reads: offer
@@ -133,7 +135,7 @@ async def run_turn(
     tools.TURN_USER_TEXT.set(last_user_text(messages))
     tools.TURN_OFFERED_TEXT.set(offered_text(messages))
 
-    ctx = TurnContext.build(msgs, screenshots_b64, ax_fixture, ax_state, plugin_reads)
+    ctx = TurnContext.build(msgs, screenshots_b64, ax_fixture, ax_state, plugin_reads, explain)
     usage: list[dict] = []
     state = restore_turn_state(msgs[len(messages):-1]) if resume else TurnState()
 

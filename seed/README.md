@@ -4,6 +4,7 @@ Content, not code. Baked into the image, so rebuild after editing.
 
 | File | What | Read by |
 |---|---|---|
+| `glossary.json` | Terms with a set definition (`match` spellings, `definition`, optional `url` / `source`); placeholders for now | `app/pipeline/glossary.py` at import |
 | `routes.json` | Approved navigation routes: name -> `desc`, `path`, optional `choice` / `picks` / `wait_for_run` / `toggle_ax_key` | `app/tools/routes.py` at import (paths in open_setting's description; runnable routes to the executors) |
 
 - **The schema and quirks:** `app/tools/README.md` (routes, dropdown `choice` blocks).

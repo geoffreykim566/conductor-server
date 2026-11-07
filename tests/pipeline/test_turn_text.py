@@ -31,3 +31,9 @@ async def test_text_beside_refused_call_gives_way(run) -> None:
         resp(text_block("")),
     ], messages=[{"role": "user", "content": "set imported files to flex on"}])
     assert "Smart Tempo Off" not in result.text and "Which Flex On option" in result.text, result.text
+
+
+def test_numbered_steps_get_a_blank_line_between() -> None:
+    from app.pipeline.reply import space_steps
+    text = "Do this:\n1. One\n2. Two\n\n3. Three\nNot 4.5 a step\nIn 2026. no"
+    assert space_steps(text) == "Do this:\n\n1. One\n\n2. Two\n\n3. Three\nNot 4.5 a step\nIn 2026. no"

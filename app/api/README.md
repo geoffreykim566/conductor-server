@@ -30,6 +30,7 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 - `ax_state`: AX text, this turn only
 - `research_confirm`
 - `plugin_reads`: the client can read a plug-in (v0.4.2+), so Sol is offered `read_plugin_values`
+- `explain`: the client's Explain toggle (v0.4.5+); on adds `prompts.EXPLAIN_BLOCK`. Absent means off
 - `resume`: `allow_research` | `deny_research` | `allow_plugin_read` | `deny_plugin_read`
 - `plugin_values`: with `allow_plugin_read`, what the client read (`{plugin, track, values}` or `{error}`; shape and size checked in `schemas.py`)
 
@@ -37,7 +38,7 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 - `status` (zero or more)
 - `chunk` (the reply text, as one chunk)
 - then exactly one of:
-  - `done`: `event_id`, `remaining`, `sources`, `walkthrough_steps`, `auto_run`, `history`
+  - `done`: `event_id`, `remaining`, `sources`, `walkthrough_steps`, `auto_run`, `terms` (glossary terms in the reply, v0.4.5+ underlines them), `history`
   - `research_prompt`: `query`, `history`
   - `plugin_read_prompt`: `plugin`, `track`, `history`
   - `error`: `kind` (`down` | `busy` | `retry`), `code` (the HTTP status behind it, or null) and `message`, the fixed text for the kind (Errors, below)

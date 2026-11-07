@@ -49,6 +49,8 @@ class ChatRequest(BaseModel):
     # With resume="allow_plugin_read": what the client read, {plugin, track, values: {label: readout}}
     # or {error}. It becomes the parked call's tool_result.
     plugin_values: dict | None = None
+    # v0.4.5+: the Explain toggle (adds prompts.EXPLAIN_BLOCK). Older clients don't send it: off.
+    explain: bool = False
 
     @field_validator("plugin_values")
     @classmethod
