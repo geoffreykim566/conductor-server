@@ -5,7 +5,7 @@ import uuid
 
 import asyncpg
 
-from app.core.config import DATABASE_URL, FREE_LIMIT
+from app.core.config import DATABASE_URL, FREE_LIMIT, STT_USD_PER_MIN
 
 _pool: asyncpg.Pool | None = None
 
@@ -159,13 +159,16 @@ async def insert_event(
 
 
 async def spend_last_24h_usd() -> float:
-    """Trailing-24h spend across all users, from the derived event_costs view."""
+    """Trailing-24h spend across all users: chat events (event_costs) plus voice, whose rows are
+    per day, so a row counts while it was updated in the last 24 h (a slight overcount)."""
     return float(await pool().fetchval(
         """
-        select coalesce(sum(usd_cost), 0)
-        from event_costs
-        where created_at > now() - interval '24 hours'
-        """
+        select (select coalesce(sum(usd_cost), 0) from event_costs
+                where created_at > now() - interval '24 hours')
+             + (select coalesce(sum(billed_seconds), 0) / 60.0 * $1 from voice_usage
+                where updated_at > now() - interval '24 hours')
+        """,
+        STT_USD_PER_MIN,
     ))
 
 

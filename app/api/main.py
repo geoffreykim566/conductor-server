@@ -10,7 +10,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.api import middleware
 from app.api.admin import router as admin_router
-from app.api.routes import chat, feedback, me, ratings, register, visit, waitlist
+from app.api.routes import chat, feedback, me, ratings, register, transcribe, visit, waitlist
 from app.core import db
 from app.core.config import CORS_ORIGINS
 from app.core.ratelimit import limiter
@@ -34,6 +34,6 @@ app.middleware("http")(middleware.reject_oversized_bodies)
 app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS,
                    allow_methods=["POST"], allow_headers=["Content-Type"])
 
-for module in (register, me, ratings, feedback, waitlist, visit, chat):
+for module in (register, me, ratings, feedback, waitlist, visit, transcribe, chat):
     app.include_router(module.router)
 app.include_router(admin_router)

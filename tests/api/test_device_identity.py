@@ -61,7 +61,9 @@ def test_register_without_a_valid_hash_sends_none(client, header) -> None:
 
 def _me(client, user: dict, headers: dict) -> AsyncMock:
     app.dependency_overrides[current_user] = lambda: user
-    with patch.object(me.db, "link_device", new=AsyncMock()) as link:
+    with patch.object(me.db, "link_device", new=AsyncMock()) as link, \
+            patch.object(me.voice_usage, "user_timezone", new=AsyncMock(return_value="UTC")), \
+            patch.object(me.voice_usage, "used_seconds", new=AsyncMock(return_value=0.0)):
         r = client.get("/v3/me", headers={"X-Conductor-Id": "x", **headers})
     assert r.status_code == 200, r.text
     return link

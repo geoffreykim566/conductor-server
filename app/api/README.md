@@ -9,7 +9,8 @@ The HTTP layer. `main.py` builds the FastAPI app (lifespan opens and closes the 
 | `main.py` | The app: lifespan, middleware, routers. `uvicorn app.api.main:app` |
 | `routes/chat.py` | `POST /v3/chat`: one turn, streamed as SSE |
 | `routes/register.py` | `POST /v3/register`: mint a signed conductor id, or return this Mac's existing one; a new Mac needs an approved waitlist email |
-| `routes/me.py` | `GET/PUT/DELETE /v3/me`: free-message count, profile, uninstall marker |
+| `routes/me.py` | `GET/PUT/DELETE /v3/me`: free-message count, voice seconds left today, profile, uninstall marker |
+| `routes/transcribe.py` | `POST /v3/transcribe`: one spoken phrase (WAV) to text, within the daily voice seconds |
 | `routes/ratings.py` | `POST /v3/ratings`: thumbs on a reply's event |
 | `routes/feedback.py` | `POST /v3/feedback`: a bug report or feedback from the client's Report Bug form |
 | `routes/waitlist.py` | `POST /v3/waitlist`: the landing page's signup form (no auth, CORS for the site) |
@@ -94,6 +95,17 @@ Visits → signups → invites → installs → use, in the admin Website tab (m
 - **Usage by channel without linking** (user call): at register, a new Mac's `users` row copies only its waitlist row's channel label, never the email. Users with no waitlist email (registered before the gate, or `WAITLIST_REQUIRED=0`) show as unknown.
 - **Country:** looked up from the IP at visit, signup and register (`app/core/geo.py`, DB-IP Lite), then the IP is dropped. Railway's proxy gives the client IP; `api.askconductor.ai` isn't proxied by Cloudflare, so there's no `CF-IPCountry`.
 - **Each funnel step counts what happened in the period**, not one cohort followed through, so a step can exceed the one before it (installs from invites sent last month).
+
+## Voice
+
+`POST /v3/transcribe` (v0.4.5+, migration 016, user calls 11-07). Body: `audio` (base64 16-bit PCM WAV, one phrase, ≤ 62 s) and `context` (the text already in the box). Header `X-Conductor-Timezone` (the client sends it on every request).
+
+**Order of checks:**
+1. The audio decodes and is a 16-bit PCM WAV of 8–48 kHz (else 422 `bad_audio`); its length comes **from the header**, never from the client (over 62 s: 422 `clip_too_long`).
+2. The budget breaker returns 503.
+3. The seconds are claimed against today's limit *before* the OpenAI call (402 `voice_limit` with `resets_at`). A failed call gives them back.
+
+Returns `{text, seconds_left, resets_at}`; an OpenAI failure is a 502 with `kind`/`code` as in the chat errors. `GET /v3/me` adds `voice_seconds_left` and `voice_resets_at`. How the day and the limit work: `app/core/README.md`, Voice.
 
 ## Adding a route
 

@@ -22,6 +22,13 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 SOL_MODEL = "gpt-6.1-sol"
 # Responses counts reasoning in output tokens; 3072 left too little room.
 SOL_MAX_OUTPUT_TOKENS = 8192
+# Voice input (app/core/README.md, Voice): phrases go to OpenAI's transcription endpoint.
+STT_MODEL = "gpt-transcribe"
+STT_USD_PER_MIN = 0.0045
+STT_TIMEOUT_S = 30.0
+VOICE_DAILY_SECONDS = int(os.environ.get("VOICE_DAILY_SECONDS", "600"))
+VOICE_MAX_CLIP_SECONDS = 62   # the client caps a recording at 60 s; a little slack for framing
+TRANSCRIBE_RATE_LIMIT = os.environ.get("TRANSCRIBE_RATE_LIMIT", "60/minute")
 # web_research's nested call is Sol with OpenAI's web_search tool; it only extracts
 # findings, so low effort (app/research/README.md).
 RESEARCH_EFFORT = "low"
